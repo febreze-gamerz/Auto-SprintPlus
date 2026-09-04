@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "id": "auto-sprint-plus",
+  "name": "Auto Sprint+",
+  "version": "${version}",
+  "description": "A feature-packed client-side auto sprint mod with a customizable HUD editor and grid snapping.",
+  "authors": ["Febreze Gamerz"],
+  "license": "MIT",
+  "icon": "assets/auto-sprint-plus/icon.png",
+  "environment": "client",
+  "entrypoints": {
+    "client": [
+      "com.febreze.autosprintplus.AutoSprintPlusMod"
+    ]
+  },
+  "depends": {
+    "fabricloader": ">=${loader_version}",
+    "minecraft": "26.1.x",
+    "java": ">=25",
+    "fabric-api": ">=0.155.2"
+  }
+}
