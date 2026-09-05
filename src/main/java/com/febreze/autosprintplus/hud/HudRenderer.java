@@ -4,30 +4,31 @@ import com.febreze.autosprintplus.AutoSprintPlusMod;
 import com.febreze.autosprintplus.config.ConfigManager;
 import com.febreze.autosprintplus.config.ModConfig;
 
-import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.network.chat.Component;
-import net.minecraft.resources.Identifier;
+import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.font.TextRenderer;
+import net.minecraft.text.Text;
+import net.minecraft.util.Identifier;
 
 public final class HudRenderer {
-    private static final Identifier ID = Identifier.fromNamespaceAndPath(AutoSprintPlusMod.MOD_ID, "hud");
+    private static final Identifier ID = Identifier.of(AutoSprintPlusMod.MOD_ID, "hud");
     private HudRenderer() {}
 
     public static void register() {
-        HudElementRegistry.addLast(ID, HudRenderer::extract);
+        HudRenderCallback.EVENT.register(HudRenderer::render);
     }
 
-    public static void extract(GuiGraphicsExtractor graphics, net.minecraft.client.DeltaTracker deltaTracker) {
-        Minecraft client = Minecraft.getInstance();
+    private static void render(DrawContext graphics, net.minecraft.client.render.RenderTickCounter tickCounter) {
+        MinecraftClient client = MinecraftClient.getInstance();
         if (client.player == null) return;
 
         ModConfig c = ConfigManager.getConfig();
         c.ensureValid();
-        if (!c.hudEnabled || client.gui.hud.isHidden()) return;
+        if (!c.hudEnabled || client.options.hudHidden) return;
 
-        int screenW = client.getWindow().getGuiScaledWidth();
-        int screenH = client.getWindow().getGuiScaledHeight();
+        int screenW = client.getWindow().getScaledWidth();
+        int screenH = client.getWindow().getScaledHeight();
         float scale = clampScale(c.hudScale);
         float width = 190.0f * scale;
         float height = 26.0f * scale;
@@ -37,7 +38,6 @@ public final class HudRenderer {
 
         c.hudX = x;
         c.hudY = y;
-
         renderHudBox(graphics, x, y, scale, false, false);
     }
 
@@ -77,12 +77,12 @@ public final class HudRenderer {
         }
     }
 
-    public static void renderHudBox(GuiGraphicsExtractor graphics, float x, float y, float scale, boolean selected) {
+    public static void renderHudBox(DrawContext graphics, float x, float y, float scale, boolean selected) {
         renderHudBox(graphics, x, y, scale, selected, false);
     }
 
-    public static void renderHudBox(GuiGraphicsExtractor graphics, float x, float y, float scale, boolean selected, boolean forceBackground) {
-        Minecraft client = Minecraft.getInstance();
+    public static void renderHudBox(DrawContext graphics, float x, float y, float scale, boolean selected, boolean forceBackground) {
+        MinecraftClient client = MinecraftClient.getInstance();
         ModConfig c = ConfigManager.getConfig();
         c.ensureValid();
 
@@ -111,19 +111,21 @@ public final class HudRenderer {
         }
 
         String sprintText = c.autoSprintEnabled ? "Sprint: Toggled" : "Sprint: Vanilla";
-        int textWidth = Math.round(client.font.width(Component.literal(sprintText)) * textScale);
-        int lineHeight = Math.round(client.font.lineHeight * textScale);
+        Text text = Text.literal(sprintText);
+        TextRenderer font = client.textRenderer;
+        int textWidth = Math.round(font.getWidth(text) * textScale);
+        int lineHeight = Math.round(font.fontHeight * textScale);
         int textX = sx + Math.max(4, (width - textWidth) / 2);
         int textY = sy + Math.max(2, (height - lineHeight) / 2);
 
-        graphics.pose().pushMatrix();
-        graphics.pose().translate(textX, textY);
-        graphics.pose().scale(textScale, textScale);
-        graphics.text(client.font, sprintText, 0, 0, textColor, c.textShadow);
-        graphics.pose().popMatrix();
+        graphics.getMatrices().push();
+        graphics.getMatrices().translate(textX, textY, 0);
+        graphics.getMatrices().scale(textScale, textScale, 1.0f);
+        graphics.drawText(font, text, 0, 0, textColor, c.textShadow);
+        graphics.getMatrices().pop();
     }
 
-    private static void drawRoundedRect(GuiGraphicsExtractor graphics, int x, int y, int width, int height, int radius, int color) {
+    private static void drawRoundedRect(DrawContext graphics, int x, int y, int width, int height, int radius, int color) {
         radius = Math.min(radius, Math.min(width, height) / 2);
         if (radius <= 0) {
             graphics.fill(x, y, x + width, y + height, color);
@@ -138,7 +140,7 @@ public final class HudRenderer {
         graphics.fill(x, y + radius, x + width, y + height - radius, color);
     }
 
-    private static void drawRoundedOutline(GuiGraphicsExtractor graphics, int x, int y, int width, int height, int radius, int color) {
+    private static void drawRoundedOutline(DrawContext graphics, int x, int y, int width, int height, int radius, int color) {
         if (width <= 0 || height <= 0) return;
         int r = Math.min(radius, Math.min(width, height) / 2);
         if (r <= 0) {
@@ -169,15 +171,7 @@ public final class HudRenderer {
         return Math.max(0, radius - (int) Math.ceil(dx));
     }
 
-    private static float clampScale(float value) {
-        return clamp(value, 0.5f, 2.0f);
-    }
-
-    private static float clamp01(float value) {
-        return clamp(value, 0.0f, 1.0f);
-    }
-
-    private static float clamp(float value, float min, float max) {
-        return Math.max(min, Math.min(max, value));
-    }
+    private static float clampScale(float value) { return clamp(value, 0.5f, 2.0f); }
+    private static float clamp01(float value) { return clamp(value, 0.0f, 1.0f); }
+    private static float clamp(float value, float min, float max) { return Math.max(min, Math.min(max, value)); }
 }

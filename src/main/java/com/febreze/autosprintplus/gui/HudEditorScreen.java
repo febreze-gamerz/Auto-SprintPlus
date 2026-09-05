@@ -4,11 +4,10 @@ import com.febreze.autosprintplus.config.ConfigManager;
 import com.febreze.autosprintplus.config.ModConfig;
 import com.febreze.autosprintplus.hud.HudRenderer;
 
-import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.client.input.MouseButtonEvent;
-import net.minecraft.network.chat.Component;
+import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.gui.widget.ButtonWidget;
+import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.text.Text;
 
 /**
  * Minimal Minecraft-style HUD editor.
@@ -24,7 +23,7 @@ public final class HudEditorScreen extends Screen {
     private double dragOffsetY;
 
     public HudEditorScreen(Screen parent) {
-        super(Component.literal("Auto Sprint+ - HUD Editor"));
+        super(Text.literal("Auto Sprint+ - HUD Editor"));
         this.parent = parent;
     }
 
@@ -42,36 +41,36 @@ public final class HudEditorScreen extends Screen {
         int left = panelX + 14;
         int right = panelX + panelW - 14 - buttonW;
 
-        addRenderableWidget(toggle("Grid", c.gridEnabled, v -> c.gridEnabled = v, left, panelY + 48, buttonW));
-        addRenderableWidget(cycleGridButton(c, right, panelY + 48, buttonW));
+        addDrawableChild(toggle("Grid", c.gridEnabled, v -> c.gridEnabled = v, left, panelY + 48, buttonW));
+        addDrawableChild(cycleGridButton(c, right, panelY + 48, buttonW));
 
-        addRenderableWidget(toggle("Snap to Grid", c.snapPosition, v -> c.snapPosition = v, left, panelY + 74, buttonW));
-        addRenderableWidget(toggle("Center Snap", c.centerSnap, v -> c.centerSnap = v, right, panelY + 74, buttonW));
+        addDrawableChild(toggle("Snap to Grid", c.snapPosition, v -> c.snapPosition = v, left, panelY + 74, buttonW));
+        addDrawableChild(toggle("Center Snap", c.centerSnap, v -> c.centerSnap = v, right, panelY + 74, buttonW));
 
-        addRenderableWidget(toggle("Edge Snap", c.edgeSnap, v -> c.edgeSnap = v, left, panelY + 100, buttonW));
-        addRenderableWidget(toggle("Snap Scale", c.snapScale, v -> c.snapScale = v, right, panelY + 100, buttonW));
+        addDrawableChild(toggle("Edge Snap", c.edgeSnap, v -> c.edgeSnap = v, left, panelY + 100, buttonW));
+        addDrawableChild(toggle("Snap Scale", c.snapScale, v -> c.snapScale = v, right, panelY + 100, buttonW));
 
-        addRenderableWidget(Button.builder(Component.literal("Scale -"), b -> changeScale(-0.1f))
-                .bounds(left, panelY + 132, buttonW, 20).build());
-        addRenderableWidget(Button.builder(Component.literal("Scale +"), b -> changeScale(0.1f))
-                .bounds(right, panelY + 132, buttonW, 20).build());
+        addDrawableChild(ButtonWidget.builder(Text.literal("Scale -"), b -> changeScale(-0.1f))
+                .dimensions(left, panelY + 132, buttonW, 20).build());
+        addDrawableChild(ButtonWidget.builder(Text.literal("Scale +"), b -> changeScale(0.1f))
+                .dimensions(right, panelY + 132, buttonW, 20).build());
 
-        addRenderableWidget(Button.builder(Component.literal("Text Scale -"), b -> changeTextScale(-0.1f))
-                .bounds(left, panelY + 158, buttonW, 20).build());
-        addRenderableWidget(Button.builder(Component.literal("Text Scale +"), b -> changeTextScale(0.1f))
-                .bounds(right, panelY + 158, buttonW, 20).build());
+        addDrawableChild(ButtonWidget.builder(Text.literal("Text Scale -"), b -> changeTextScale(-0.1f))
+                .dimensions(left, panelY + 158, buttonW, 20).build());
+        addDrawableChild(ButtonWidget.builder(Text.literal("Text Scale +"), b -> changeTextScale(0.1f))
+                .dimensions(right, panelY + 158, buttonW, 20).build());
 
-        addRenderableWidget(Button.builder(Component.literal("Reset HUD"), b -> {
+        addDrawableChild(ButtonWidget.builder(Text.literal("Reset HUD"), b -> {
             c.resetHud();
             ConfigManager.save();
-        }).bounds(left, panelY + 190, buttonW, 20).build());
+        }).dimensions(left, panelY + 190, buttonW, 20).build());
 
-        addRenderableWidget(Button.builder(Component.literal("Done"), b -> onClose())
-                .bounds(right, panelY + 190, buttonW, 20).build());
+        addDrawableChild(ButtonWidget.builder(Text.literal("Done"), b -> close())
+                .dimensions(right, panelY + 190, buttonW, 20).build());
     }
 
-    private Button cycleGridButton(ModConfig c, int x, int y, int width) {
-        return Button.builder(Component.literal("Grid Size: " + c.gridSize + " px"), b -> {
+    private ButtonWidget cycleGridButton(ModConfig c, int x, int y, int width) {
+        return ButtonWidget.builder(Text.literal("Grid Size: " + c.gridSize + " px"), b -> {
             int[] sizes = {5, 10, 15, 20, 25, 50};
             int index = 0;
             for (int i = 0; i < sizes.length; i++) {
@@ -81,22 +80,22 @@ public final class HudEditorScreen extends Screen {
                 }
             }
             c.gridSize = sizes[(index + 1) % sizes.length];
-            b.setMessage(Component.literal("Grid Size: " + c.gridSize + " px"));
+            b.setMessage(Text.literal("Grid Size: " + c.gridSize + " px"));
             ConfigManager.save();
-        }).bounds(x, y, width, 20).build();
+        }).dimensions(x, y, width, 20).build();
     }
 
-    private Button toggle(String name, boolean value, ToggleHandler handler, int x, int y, int width) {
-        return Button.builder(toggleText(name, value), b -> {
+    private ButtonWidget toggle(String name, boolean value, ToggleHandler handler, int x, int y, int width) {
+        return ButtonWidget.builder(toggleText(name, value), b -> {
             boolean next = !b.getMessage().getString().endsWith("ON");
             handler.change(next);
             b.setMessage(toggleText(name, next));
             ConfigManager.save();
-        }).bounds(x, y, width, 20).build();
+        }).dimensions(x, y, width, 20).build();
     }
 
-    private Component toggleText(String name, boolean value) {
-        return Component.literal(name + ": " + (value ? "ON" : "OFF"));
+    private Text toggleText(String name, boolean value) {
+        return Text.literal(name + ": " + (value ? "ON" : "OFF"));
     }
 
     private void changeScale(float delta) {
@@ -116,7 +115,12 @@ public final class HudEditorScreen extends Screen {
     }
 
     @Override
-    public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta) {
+    public void render(DrawContext graphics, int mouseX, int mouseY, float delta) {
+        // Render vanilla background exactly once. Screen.render() also calls
+        // renderBackground(), so renderBackground() is disabled below to
+        // prevent it from being drawn over our crisp GUI text and controls.
+        renderBackground(graphics, mouseX, mouseY, delta);
+
         ModConfig c = ConfigManager.getConfig();
         c.ensureValid();
 
@@ -143,16 +147,21 @@ public final class HudEditorScreen extends Screen {
         // Classic Minecraft options-style panel.
         graphics.fill(panelX, panelY, panelX + panelW, panelY + panelH, 0xF02A2A2A);
         graphics.fill(panelX + 2, panelY + 2, panelX + panelW - 2, panelY + panelH - 2, 0xE0181818);
-        graphics.outline(panelX, panelY, panelW, panelH, 0xFF808080);
+        graphics.drawBorder(panelX, panelY, panelW, panelH, 0xFF808080);
 
-        graphics.centeredText(font, Component.literal("HUD Editor"), width / 2, panelY + 12, 0xFFFFFFFF);
-        graphics.centeredText(font, Component.literal("Drag the HUD to move it"), width / 2, panelY + 28, 0xFFB0B0B0);
-        graphics.text(font, "HUD: " + String.format("%.1fx", c.hudScale) + "   Text: " + String.format("%.1fx", c.textScale), panelX + 15, panelY + panelH - 20, 0xFFB0B0B0, false);
+        drawCenteredCrisp(graphics, Text.literal("HUD Editor"), width / 2, panelY + 12, 0xFFFFFFFF);
+        drawCenteredCrisp(graphics, Text.literal("Drag the HUD to move it"), width / 2, panelY + 28, 0xFFB0B0B0);
+        graphics.drawText(textRenderer, "HUD: " + String.format("%.1fx", c.hudScale) + "   Text: " + String.format("%.1fx", c.textScale), panelX + 15, panelY + panelH - 20, 0xFFB0B0B0, false);
 
-        super.extractRenderState(graphics, mouseX, mouseY, delta);
+        super.render(graphics, mouseX, mouseY, delta);
     }
 
-    private void drawGrid(GuiGraphicsExtractor graphics, ModConfig c) {
+    private void drawCenteredCrisp(DrawContext graphics, Text text, int centerX, int y, int color) {
+        int x = centerX - textRenderer.getWidth(text) / 2;
+        graphics.drawText(textRenderer, text, x, y, color, false);
+    }
+
+    private void drawGrid(DrawContext graphics, ModConfig c) {
         if (!c.gridEnabled) return;
         int step = Math.max(2, c.gridSize);
         int minX = 0;
@@ -167,39 +176,39 @@ public final class HudEditorScreen extends Screen {
         }
     }
 
-    private void drawCenterGuides(GuiGraphicsExtractor graphics, ModConfig c) {
+    private void drawCenterGuides(DrawContext graphics, ModConfig c) {
         if (!c.centerSnap) return;
         graphics.fill(width / 2, 0, width / 2 + 1, height, 0x5533AAFF);
         graphics.fill(0, height / 2, width, height / 2 + 1, 0x5533AAFF);
     }
 
     @Override
-    public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
-        if (event.button() == 0) {
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        if (button == 0) {
             ModConfig c = ConfigManager.getConfig();
             float w = 190.0f * c.hudScale;
             float h = 26.0f * c.hudScale;
             float x = HudRenderer.resolveX(c, width, w);
             float y = HudRenderer.resolveY(c, height, h);
 
-            if (event.x() >= x && event.x() <= x + w && event.y() >= y && event.y() <= y + h) {
+            if (mouseX >= x && mouseX <= x + w && mouseY >= y && mouseY <= y + h) {
                 draggingHud = true;
-                dragOffsetX = event.x() - x;
-                dragOffsetY = event.y() - y;
+                dragOffsetX = mouseX - x;
+                dragOffsetY = mouseY - y;
                 return true;
             }
         }
-        return super.mouseClicked(event, doubleClick);
+        return super.mouseClicked(mouseX, mouseY, button);
     }
 
     @Override
-    public boolean mouseDragged(MouseButtonEvent event, double dragX, double dragY) {
-        if (draggingHud && event.button() == 0) {
+    public boolean mouseDragged(double mouseX, double mouseY, int button, double deltaX, double deltaY) {
+        if (draggingHud && button == 0) {
             ModConfig c = ConfigManager.getConfig();
             float w = 190.0f * c.hudScale;
             float h = 26.0f * c.hudScale;
-            float x = (float) (event.x() - dragOffsetX);
-            float y = (float) (event.y() - dragOffsetY);
+            float x = (float) (mouseX - dragOffsetX);
+            float y = (float) (mouseY - dragOffsetY);
 
             // Snap-to-grid works independently from whether the grid is currently visible.
             if (c.snapPosition) {
@@ -227,12 +236,12 @@ public final class HudEditorScreen extends Screen {
             HudRenderer.setPositionFromPixels(c, x, y, width, height);
             return true;
         }
-        return super.mouseDragged(event, dragX, dragY);
+        return super.mouseDragged(mouseX, mouseY, button, deltaX, deltaY);
     }
 
     @Override
-    public boolean mouseReleased(MouseButtonEvent event) {
-        if (event.button() == 0) {
+    public boolean mouseReleased(double mouseX, double mouseY, int button) {
+        if (button == 0) {
             boolean wasDragging = draggingHud;
             draggingHud = false;
             if (wasDragging) {
@@ -240,13 +249,23 @@ public final class HudEditorScreen extends Screen {
                 return true;
             }
         }
-        return super.mouseReleased(event);
+        return super.mouseReleased(mouseX, mouseY, button);
+    }
+
+    /**
+     * Background is rendered explicitly at the start of render().
+     * Keeping this empty prevents Screen.render() from drawing the blurred
+     * background a second time over our custom GUI.
+     */
+    @Override
+    public void renderBackground(DrawContext graphics, int mouseX, int mouseY, float delta) {
+        // Intentionally empty.
     }
 
     @Override
-    public void onClose() {
+    public void close() {
         ConfigManager.save();
-        minecraft.gui.setScreen(parent);
+        client.setScreen(parent);
     }
 
     @FunctionalInterface

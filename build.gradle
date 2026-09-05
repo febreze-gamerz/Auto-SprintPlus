@@ -1,5 +1,5 @@
 plugins {
-    id 'net.fabricmc.fabric-loom' version "${loom_version}"
+    id 'fabric-loom' version '1.8.12'
     id 'java'
 }
 
@@ -17,39 +17,32 @@ repositories {
 
 dependencies {
     minecraft "com.mojang:minecraft:${project.minecraft_version}"
-    implementation "net.fabricmc:fabric-loader:${project.loader_version}"
-    implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
+    mappings "net.fabricmc:yarn:${project.yarn_mappings}:v2"
+    modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
+    modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
 }
 
 java {
     toolchain {
-        languageVersion = JavaLanguageVersion.of(25)
+        languageVersion = JavaLanguageVersion.of(21)
     }
 }
 
 tasks.withType(JavaCompile).configureEach {
-    options.release = 25
+    options.release = 21
     options.encoding = 'UTF-8'
 }
 
 processResources {
     inputs.property 'version', project.version
-    inputs.property 'minecraft_version', project.minecraft_version
-    inputs.property 'loader_version', project.loader_version
-    inputs.property 'fabric_version', project.fabric_version
-
     filesMatching('fabric.mod.json') {
-        expand(
-            version: project.version,
-            minecraft_version: project.minecraft_version,
-            loader_version: project.loader_version,
-            fabric_version: project.fabric_version
-        )
+        expand(version: project.version, minecraft_version: project.minecraft_version,
+               loader_version: project.loader_version, fabric_version: project.fabric_version)
     }
 }
 
 jar {
     archiveBaseName = project.archives_base_name
-    archiveVersion = project.mod_version
-    archiveClassifier = '26.2'
+    archiveVersion = ''
+    archiveFileName = "${project.archives_base_name}.jar"
 }

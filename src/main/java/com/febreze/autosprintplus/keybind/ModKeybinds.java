@@ -4,44 +4,41 @@ import com.febreze.autosprintplus.AutoSprintPlusMod;
 import com.febreze.autosprintplus.config.ConfigManager;
 import com.febreze.autosprintplus.gui.ConfigScreen;
 
-import com.mojang.blaze3d.platform.InputConstants;
-import net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper;
-import net.minecraft.client.KeyMapping;
-import net.minecraft.client.Minecraft;
-import net.minecraft.resources.Identifier;
+import net.minecraft.client.util.InputUtil;
+import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.option.KeyBinding;
 
 public final class ModKeybinds {
     private ModKeybinds() {}
 
-    public static final KeyMapping.Category CATEGORY = KeyMapping.Category.register(
-            Identifier.fromNamespaceAndPath(AutoSprintPlusMod.MOD_ID, "main")
-    );
+    private static final String CATEGORY = "key.categories.auto-sprint-plus";
 
-    public static KeyMapping openGuiKey;
-    public static KeyMapping toggleSprintKey;
+    public static KeyBinding openGuiKey;
+    public static KeyBinding toggleSprintKey;
 
     public static void register() {
-        openGuiKey = KeyMappingHelper.registerKeyMapping(new KeyMapping(
+        openGuiKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
                 "key.auto-sprint-plus.open_gui",
-                InputConstants.Type.KEYSYM,
-                InputConstants.KEY_Y,
+                InputUtil.Type.KEYSYM,
+                InputUtil.GLFW_KEY_Y,
                 CATEGORY
         ));
 
-        toggleSprintKey = KeyMappingHelper.registerKeyMapping(new KeyMapping(
+        toggleSprintKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
                 "key.auto-sprint-plus.toggle_sprint",
-                InputConstants.Type.KEYSYM,
-                InputConstants.UNKNOWN.getValue(),
+                InputUtil.Type.KEYSYM,
+                InputUtil.UNKNOWN_KEY.getCode(),
                 CATEGORY
         ));
     }
 
-    public static void handle(Minecraft client) {
-        while (openGuiKey.consumeClick()) {
-            client.gui.setScreen(new ConfigScreen(client.gui.screen()));
+    public static void handle(MinecraftClient client) {
+        while (openGuiKey.wasPressed()) {
+            client.setScreen(new ConfigScreen(client.currentScreen));
         }
 
-        while (toggleSprintKey.consumeClick()) {
+        while (toggleSprintKey.wasPressed()) {
             ConfigManager.getConfig().autoSprintEnabled = !ConfigManager.getConfig().autoSprintEnabled;
             ConfigManager.save();
         }

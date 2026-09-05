@@ -3,5 +3,6 @@
   "key.auto-sprint-plus.open_gui": "Open Auto Sprint+",
   "key.auto-sprint-plus.toggle_sprint": "Toggle Auto Sprint",
   "auto-sprint-plus.title": "Auto Sprint+",
-  "auto-sprint-plus.hud_editor": "Auto Sprint+ HUD Editor"
+  "auto-sprint-plus.hud_editor": "Auto Sprint+ HUD Editor",
+  "key.categories.auto-sprint-plus": "Auto Sprint+"
 }

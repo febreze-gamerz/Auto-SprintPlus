@@ -4,11 +4,10 @@ import com.febreze.autosprintplus.config.ConfigManager;
 import com.febreze.autosprintplus.config.ModConfig;
 import com.febreze.autosprintplus.hud.HudColor;
 
-import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.client.input.MouseButtonEvent;
-import net.minecraft.network.chat.Component;
+import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.gui.widget.ButtonWidget;
+import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.text.Text;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -29,7 +28,7 @@ public final class ConfigScreen extends Screen {
     private static final int ROW_GAP = 26;
     private static final int COLUMN_GAP = 8;
     private static final int CONTENT_W = 520;
-    private static final int SCROLLBAR_W = 4;
+    private static final int SCROLLBAR_W = 6;
 
     private final Screen parent;
     private final List<ButtonEntry> entries = new ArrayList<>();
@@ -38,7 +37,7 @@ public final class ConfigScreen extends Screen {
     private int contentHeight;
     private boolean draggingScrollbar;
     private double scrollbarGrabOffset;
-    private Button doneButton;
+    private ButtonWidget doneButton;
 
     private int roundedOffset = -1;
     private int opacityOffset = -1;
@@ -46,13 +45,13 @@ public final class ConfigScreen extends Screen {
     private boolean draggingOpacity;
 
     public ConfigScreen(Screen parent) {
-        super(Component.literal("Auto Sprint+"));
+        super(Text.literal("Auto Sprint+"));
         this.parent = parent;
     }
 
     @Override
     protected void init() {
-        clearWidgets();
+        clearChildren();
         entries.clear();
         roundedOffset = -1;
         opacityOffset = -1;
@@ -109,7 +108,7 @@ public final class ConfigScreen extends Screen {
         row += 48;
 
         row = addButtonPair(left, colW, row,
-                "Edit HUD", b -> minecraft.gui.setScreen(new HudEditorScreen(this)),
+                "Edit HUD", b -> client.setScreen(new HudEditorScreen(this)),
                 "Reset HUD", b -> {
                     c.resetHud();
                     ConfigManager.save();
@@ -126,10 +125,10 @@ public final class ConfigScreen extends Screen {
 
         contentHeight = row + 28;
 
-        doneButton = Button.builder(Component.literal("Done"), b -> onClose())
-                .bounds(left, height - 28, CONTENT_W, 20)
+        doneButton = ButtonWidget.builder(Text.literal("Done"), b -> close())
+                .dimensions(left, height - 28, CONTENT_W, 20)
                 .build();
-        addRenderableWidget(doneButton);
+        addDrawableChild(doneButton);
 
         clampScroll();
         updateLayout();
@@ -173,8 +172,8 @@ public final class ConfigScreen extends Screen {
     }
 
     private int addButtonPair(int left, int colW, int row,
-                              String leftLabel, Button.OnPress leftAction,
-                              String rightLabel, Button.OnPress rightAction) {
+                              String leftLabel, ButtonWidget.PressAction leftAction,
+                              String rightLabel, ButtonWidget.PressAction rightAction) {
         addButton(left, colW, 0, row, leftLabel, leftAction);
         addButton(left + colW + COLUMN_GAP, colW, 1, row, rightLabel, rightAction);
         return row + ROW_GAP;
@@ -182,7 +181,7 @@ public final class ConfigScreen extends Screen {
 
     private int addToggle(int x, int w, int column, int cursor, String label,
                           Supplier<Boolean> getter, Consumer<Boolean> setter) {
-        Button button = Button.builder(
+        ButtonWidget button = ButtonWidget.builder(
                 optionText(label, getter.get()),
                 b -> {
                     boolean next = !getter.get();
@@ -190,45 +189,45 @@ public final class ConfigScreen extends Screen {
                     ConfigManager.save();
                     b.setMessage(optionText(label, next));
                 }
-        ).bounds(x, 0, w, ROW_H).build();
+        ).dimensions(x, 0, w, ROW_H).build();
 
         entries.add(ButtonEntry.widget(button, cursor, column));
-        addRenderableWidget(button);
+        addDrawableChild(button);
         return cursor + ROW_GAP;
     }
 
     private int addCycle(int x, int w, int column, int cursor, String label,
                          Supplier<String> getter, Runnable action) {
-        Button button = Button.builder(
+        ButtonWidget button = ButtonWidget.builder(
                 optionText(label, getter.get()),
                 b -> {
                     action.run();
                     ConfigManager.save();
                     b.setMessage(optionText(label, getter.get()));
                 }
-        ).bounds(x, 0, w, ROW_H).build();
+        ).dimensions(x, 0, w, ROW_H).build();
 
         entries.add(ButtonEntry.widget(button, cursor, column));
-        addRenderableWidget(button);
+        addDrawableChild(button);
         return cursor + ROW_GAP;
     }
 
-    private int addButton(int x, int w, int column, int cursor, String label, Button.OnPress action) {
-        Button button = Button.builder(Component.literal(label), action)
-                .bounds(x, 0, w, ROW_H)
+    private int addButton(int x, int w, int column, int cursor, String label, ButtonWidget.PressAction action) {
+        ButtonWidget button = ButtonWidget.builder(Text.literal(label), action)
+                .dimensions(x, 0, w, ROW_H)
                 .build();
 
         entries.add(ButtonEntry.widget(button, cursor, column));
-        addRenderableWidget(button);
+        addDrawableChild(button);
         return cursor + ROW_GAP;
     }
 
-    private Component optionText(String label, boolean value) {
-        return Component.literal(label + ": " + (value ? "ON" : "OFF"));
+    private Text optionText(String label, boolean value) {
+        return Text.literal(label + ": " + (value ? "ON" : "OFF"));
     }
 
-    private Component optionText(String label, String value) {
-        return Component.literal(label + ": " + value);
+    private Text optionText(String label, String value) {
+        return Text.literal(label + ": " + value);
     }
 
     private void updateLayout() {
@@ -304,46 +303,46 @@ public final class ConfigScreen extends Screen {
     }
 
     @Override
-    public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
-        if (event.button() == 0) {
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        if (button == 0) {
             int trackH = scrollbarTrackHeight();
             int trackX = contentLeft() + contentWidth() + 8;
-            if (contentHeight > trackH && event.x() >= trackX - 5 && event.x() <= trackX + SCROLLBAR_W + 5
-                    && event.y() >= CONTENT_TOP && event.y() <= CONTENT_TOP + trackH) {
+            if (contentHeight > trackH && mouseX >= trackX - 5 && mouseX <= trackX + SCROLLBAR_W + 5
+                    && mouseY >= CONTENT_TOP && mouseY <= CONTENT_TOP + trackH) {
                 int thumbH = scrollbarThumbHeight(trackH);
                 int thumbY = scrollbarThumbY(trackH, thumbH);
-                if (event.y() >= thumbY && event.y() <= thumbY + thumbH) {
+                if (mouseY >= thumbY && mouseY <= thumbY + thumbH) {
                     draggingScrollbar = true;
-                    scrollbarGrabOffset = event.y() - thumbY;
+                    scrollbarGrabOffset = mouseY - thumbY;
                     return true;
                 }
             }
 
-            double rounded = sliderHit(event.x(), event.y(), roundedOffset);
+            double rounded = sliderHit(mouseX, mouseY, roundedOffset);
             if (rounded >= 0.0) {
                 setRoundedFromSlider(rounded);
                 draggingRounded = true;
                 return true;
             }
 
-            double opacity = sliderHit(event.x(), event.y(), opacityOffset);
+            double opacity = sliderHit(mouseX, mouseY, opacityOffset);
             if (opacity >= 0.0) {
                 setOpacityFromSlider(opacity);
                 draggingOpacity = true;
                 return true;
             }
         }
-        return super.mouseClicked(event, doubleClick);
+        return super.mouseClicked(mouseX, mouseY, button);
     }
 
     @Override
-    public boolean mouseDragged(MouseButtonEvent event, double dragX, double dragY) {
+    public boolean mouseDragged(double mouseX, double mouseY, int button, double deltaX, double deltaY) {
         if (draggingScrollbar) {
             int trackH = scrollbarTrackHeight();
             int thumbH = scrollbarThumbHeight(trackH);
             double usable = Math.max(1.0, trackH - thumbH);
             double top = Math.max(0.0, Math.min(usable,
-                    event.y() - CONTENT_TOP - scrollbarGrabOffset));
+                    mouseY - CONTENT_TOP - scrollbarGrabOffset));
             double max = Math.max(0.0, contentHeight - trackH);
             scrollOffset = max * (top / usable);
             updateLayout();
@@ -351,23 +350,23 @@ public final class ConfigScreen extends Screen {
         }
 
         if (draggingRounded) {
-            double value = sliderHit(event.x(), event.y(), roundedOffset);
+            double value = sliderHit(mouseX, mouseY, roundedOffset);
             if (value >= 0.0) setRoundedFromSlider(value);
             return true;
         }
 
         if (draggingOpacity) {
-            double value = sliderHit(event.x(), event.y(), opacityOffset);
+            double value = sliderHit(mouseX, mouseY, opacityOffset);
             if (value >= 0.0) setOpacityFromSlider(value);
             return true;
         }
 
-        return super.mouseDragged(event, dragX, dragY);
+        return super.mouseDragged(mouseX, mouseY, button, deltaX, deltaY);
     }
 
     @Override
-    public boolean mouseReleased(MouseButtonEvent event) {
-        if (event.button() == 0) {
+    public boolean mouseReleased(double mouseX, double mouseY, int button) {
+        if (button == 0) {
             boolean wasDragging = draggingScrollbar || draggingRounded || draggingOpacity;
             draggingScrollbar = false;
             draggingRounded = false;
@@ -377,7 +376,7 @@ public final class ConfigScreen extends Screen {
                 return true;
             }
         }
-        return super.mouseReleased(event);
+        return super.mouseReleased(mouseX, mouseY, button);
     }
 
     private double sliderHit(double mouseX, double mouseY, int contentOffset) {
@@ -402,15 +401,20 @@ public final class ConfigScreen extends Screen {
     }
 
     @Override
-    public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta) {
+    public void render(DrawContext graphics, int mouseX, int mouseY, float delta) {
+        // Render vanilla background exactly once. Screen.render() also calls
+        // renderBackground(), so renderBackground() is disabled below to
+        // prevent it from being drawn over our crisp GUI text and controls.
+        renderBackground(graphics, mouseX, mouseY, delta);
+
         ModConfig c = ConfigManager.getConfig();
         c.ensureValid();
 
         // Vanilla-style transparent backdrop: keep the world/menu behind it visible.
         graphics.fill(0, 0, width, height, 0x55000000);
 
-        graphics.centeredText(font, title, width / 2, 15, 0xFFFFFFFF);
-        graphics.centeredText(font, Component.literal("Auto Sprint+ Settings"), width / 2, 29, 0xFFAAAAAA);
+        drawCenteredCrisp(graphics, title, width / 2, 15, 0xFFFFFFFF);
+        drawCenteredCrisp(graphics, Text.literal("Auto Sprint+ Settings"), width / 2, 29, 0xFFAAAAAA);
 
         int left = contentLeft();
         int trackH = scrollbarTrackHeight();
@@ -420,7 +424,7 @@ public final class ConfigScreen extends Screen {
             if (!entry.section) continue;
             int y = CONTENT_TOP + entry.offset - (int) scrollOffset;
             if (y >= CONTENT_TOP - 12 && y <= height - CONTENT_BOTTOM) {
-                graphics.centeredText(font, Component.literal(entry.sectionTitle), width / 2, y, 0xFFBFBFBF);
+                drawCenteredCrisp(graphics, Text.literal(entry.sectionTitle), width / 2, y, 0xFFBFBFBF);
                 graphics.fill(left, y + 16, left + contentWidth(), y + 17, 0x55555555);
             }
         }
@@ -443,45 +447,60 @@ public final class ConfigScreen extends Screen {
         // Vanilla-style scrollbar.
         if (contentHeight > trackH) {
             int x = left + contentWidth() + 8;
-            graphics.fill(x, CONTENT_TOP, x + SCROLLBAR_W, CONTENT_TOP + trackH, 0x55333333);
+            graphics.fill(x, CONTENT_TOP, x + SCROLLBAR_W, CONTENT_TOP + trackH, 0xFF202020);
             int thumbH = scrollbarThumbHeight(trackH);
             int thumbY = scrollbarThumbY(trackH, thumbH);
-            graphics.fill(x - 1, thumbY, x + SCROLLBAR_W + 1, thumbY + thumbH, 0xFFAAAAAA);
+            graphics.fill(x, thumbY, x + SCROLLBAR_W, thumbY + thumbH, 0xFFC0C0C0);
         }
 
         // Footer separator; the footer itself remains transparent.
         graphics.fill(left, height - CONTENT_BOTTOM, left + contentWidth(), height - CONTENT_BOTTOM + 1, 0x55555555);
 
-        super.extractRenderState(graphics, mouseX, mouseY, delta);
+        super.render(graphics, mouseX, mouseY, delta);
     }
 
-    private void drawSlider(GuiGraphicsExtractor graphics, int x, int y, int w,
+    private void drawCenteredCrisp(DrawContext graphics, Text text, int centerX, int y, int color) {
+        int x = centerX - textRenderer.getWidth(text) / 2;
+        graphics.drawText(textRenderer, text, x, y, color, false);
+    }
+
+    private void drawSlider(DrawContext graphics, int x, int y, int w,
                             double value, String label, String valueText) {
-        graphics.text(font, label, x, y - 16, 0xFFFFFFFF, false);
+        graphics.drawText(textRenderer, label, x, y - 16, 0xFFFFFFFF, false);
         int lineY = y + 2;
         graphics.fill(x, lineY, x + w, lineY + 3, 0xFF555555);
         graphics.fill(x, lineY, x + (int) (w * value), lineY + 3, 0xFFAAAAAA);
         int knobX = x + (int) (w * value);
         graphics.fill(knobX - 2, lineY - 3, knobX + 3, lineY + 8, 0xFFFFFFFF);
-        int valueWidth = font.width(valueText);
-        graphics.text(font, valueText, x + w - valueWidth, y - 16, 0xFFBFBFBF, false);
+        int valueWidth = textRenderer.getWidth(valueText);
+        graphics.drawText(textRenderer, valueText, x + w - valueWidth, y - 16, 0xFFBFBFBF, false);
+    }
+
+    /**
+     * Background is rendered explicitly at the start of render().
+     * Keeping this empty prevents Screen.render() from drawing the blurred
+     * background a second time over our custom GUI.
+     */
+    @Override
+    public void renderBackground(DrawContext graphics, int mouseX, int mouseY, float delta) {
+        // Intentionally empty.
     }
 
     @Override
-    public void onClose() {
+    public void close() {
         ConfigManager.save();
-        minecraft.gui.setScreen(parent);
+        client.setScreen(parent);
     }
 
     private static final class ButtonEntry {
-        final Button button;
+        final ButtonWidget button;
         final int offset;
         final int column;
         final int width;
         final boolean section;
         final String sectionTitle;
 
-        private ButtonEntry(Button button, int offset, int column, int width,
+        private ButtonEntry(ButtonWidget button, int offset, int column, int width,
                             boolean section, String sectionTitle) {
             this.button = button;
             this.offset = offset;
@@ -491,7 +510,7 @@ public final class ConfigScreen extends Screen {
             this.sectionTitle = sectionTitle;
         }
 
-        static ButtonEntry widget(Button button, int offset, int column) {
+        static ButtonEntry widget(ButtonWidget button, int offset, int column) {
             return new ButtonEntry(button, offset, column, -1, false, "");
         }
 
