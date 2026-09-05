@@ -1,5 +1,5 @@
 plugins {
-    id 'net.fabricmc.fabric-loom' version '1.16.1'
+    id 'net.fabricmc.fabric-loom' version "${loom_version}"
     id 'java'
 }
 
@@ -51,4 +51,5 @@ processResources {
 jar {
     archiveBaseName = project.archives_base_name
     archiveVersion = project.mod_version
+    archiveClassifier = '26.2'
 }

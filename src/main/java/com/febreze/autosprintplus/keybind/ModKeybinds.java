@@ -38,7 +38,7 @@ public final class ModKeybinds {
 
     public static void handle(Minecraft client) {
         while (openGuiKey.consumeClick()) {
-            client.setScreen(new ConfigScreen(client.screen));
+            client.gui.setScreen(new ConfigScreen(client.gui.screen()));
         }
 
         while (toggleSprintKey.consumeClick()) {

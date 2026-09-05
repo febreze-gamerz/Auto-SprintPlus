@@ -109,7 +109,7 @@ public final class ConfigScreen extends Screen {
         row += 48;
 
         row = addButtonPair(left, colW, row,
-                "Edit HUD", b -> minecraft.setScreen(new HudEditorScreen(this)),
+                "Edit HUD", b -> minecraft.gui.setScreen(new HudEditorScreen(this)),
                 "Reset HUD", b -> {
                     c.resetHud();
                     ConfigManager.save();
@@ -470,7 +470,7 @@ public final class ConfigScreen extends Screen {
     @Override
     public void onClose() {
         ConfigManager.save();
-        minecraft.setScreen(parent);
+        minecraft.gui.setScreen(parent);
     }
 
     private static final class ButtonEntry {

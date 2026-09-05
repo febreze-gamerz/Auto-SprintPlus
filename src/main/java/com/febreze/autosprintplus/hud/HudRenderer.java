@@ -24,7 +24,7 @@ public final class HudRenderer {
 
         ModConfig c = ConfigManager.getConfig();
         c.ensureValid();
-        if (!c.hudEnabled || client.options.hideGui) return;
+        if (!c.hudEnabled || client.gui.hud.isHidden()) return;
 
         int screenW = client.getWindow().getGuiScaledWidth();
         int screenH = client.getWindow().getGuiScaledHeight();
