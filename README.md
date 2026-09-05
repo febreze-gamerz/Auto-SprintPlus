@@ -8,22 +8,31 @@ A lightweight, customizable Fabric mod for Minecraft that enhances sprinting mec
 
 ![Keybind Changing](https://cdn.modrinth.com/data/cached_images/a213d5277afa9bf992a1c4264b7f408cca090f7d_0.webp)
 
+## Key Features
+
+### Movement:
+
+*   **Auto-Sprint Toggle**: Automatically sprints whenever you move forward.
+*   **Toggle Modes**: Switch easily between Toggled mode and Vanilla behavior.
+*   **Context Aware Logic**: Automatically pauses sprint while swimming or flying (Can be turned on/off)
+
+### Customizable HUD & Editor:
+
+*   **Interactive Drag-and-Drop**: Position your sprint status overlay anywhere on screen.
+*   **Grid Snapping**: Align your HUD to screen edges, centerlines, or custom grid lines with pixel precision.
+*   **Visual Customization**: Edit your UI with accent colors, optional text strokes, and adjustable opacity.
+
 ---
 
-## 🚀 Features
-
-* **Smart Auto-Sprinting:** Seamlessly manages sprint toggles and logic without interfering with vanilla movement.
-* **In-Game Configuration:** Adjust mod settings directly from a dedicated configuration screen.
-* **Custom HUD Overlay:** Displays sprint status on-screen with customizable HUD positions, accent colors, and custom visual options.
-* **Keybind Integration:** Easily assign and toggle features using dedicated keybinds.
-
----
-
-## 🔗 Links & Downloads
-
-* 🟢 **Modrinth:** [modrinth.com/mod/auto-sprintplus](https://modrinth.com/mod/auto-sprintplus)
-* 🟠 **CurseForge:** [curseforge.com/minecraft/mc-mods/auto-sprintplus](https://www.curseforge.com/minecraft/mc-mods/auto-sprintplus)
-* 💬 **Discord Community:** [dsc.gg/febreze-hub](https://dsc.gg/febreze-hub) or [Join via Direct Link](https://discord.gg/JjrcaTUny7)
+# Community
+<div align="center">
+  <a href="https://discord.com/invite/JjrcaTUny7">
+    <img src="https://media.discordapp.net/attachments/1248839546448252999/1545320113148792903/image.png?ex=6a9bb701&is=6a9a6581&hm=2382aaeba440ae0db8ab188bb322a4c5542048262113233a48320d93b18d8ab4&=&format=webp&quality=lossless" alt="Discord" height="40" />
+  </a>
+  <a href="https://www.curseforge.com/minecraft/mc-mods/auto-sprintplus">
+    <img src="https://media.discordapp.net/attachments/1248839546448252999/1545334344380457010/fff2f16d-565c-4283-a24b-07c14e0e0f57.png?ex=6a9bc442&is=6a9a72c2&hm=9c7e434afe3f5144b1f0b8e0e30b6812bce2893551cd1bc45fe5c440fe22ec0a&=&format=webp&quality=lossless" alt="Curseforge" height="40" />
+  </a>
+</div>
 
 ---
 
