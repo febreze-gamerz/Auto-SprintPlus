@@ -1,6 +1,12 @@
-# Auto-SprintPlus
+# Auto Sprint+ - Sprint Without Control
 
 A lightweight, customizable Fabric mod for Minecraft that enhances sprinting mechanics with built-in HUD overlays, color customization, and fine-tuned control options.
+
+---
+
+**Auto Sprint+** is a **Client-Side** Fabric Mod that allows player to sprint without holding or pressing ctrl/control! You can toggle it on and off inside the game. Change keybind in options!
+
+![Keybind Changing](https://cdn.modrinth.com/data/cached_images/a213d5277afa9bf992a1c4264b7f408cca090f7d_0.webp)
 
 ---
 
