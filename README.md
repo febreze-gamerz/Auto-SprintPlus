@@ -21,7 +21,6 @@ A lightweight, customizable **client-side Fabric mod** that lets you sprint auto
 * **Drag-and-Drop HUD**: Easily position your sprint status anywhere on screen.
 * **Grid Snapping**: Snap your HUD to the grid, center, or screen edges.
 * **HUD Customization**: Change colors, opacity, scale, borders, and text.
-* **Improved HUD Editor**: Smoother dragging and more accurate positioning in Minecraft 26.3.
 
 ---
 
