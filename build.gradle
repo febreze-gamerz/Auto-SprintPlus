@@ -1,0 +1,99 @@
+plugins {
+    id 'net.fabricmc.fabric-loom' version "${loom_version}"
+    id 'java'
+}
+
+version = project.mod_version
+group = project.maven_group
+
+// ----------------------------------------------------------------
+// Version profiles
+// ----------------------------------------------------------------
+// Put Minecraft-version-specific dependency values in versions/*.properties.
+// Example:
+//   ./gradlew build -Ptarget_mc=26.2
+//   ./gradlew build -Ptarget_mc=26.3
+//
+// The source code stays shared. If a future Minecraft release changes a
+// Minecraft/Fabric API method, isolate that change in a compatibility class
+// instead of scattering version checks throughout the mod.
+// ----------------------------------------------------------------
+def targetMc = project.findProperty('target_mc') ?: project.minecraft_version
+def profileFile = file("versions/${targetMc}.properties")
+def profile = new Properties()
+
+if (profileFile.exists()) {
+    profileFile.withInputStream { profile.load(it) }
+} else if (project.hasProperty('target_mc')) {
+    throw new GradleException("Unknown Minecraft profile '${targetMc}'. Add versions/${targetMc}.properties first.")
+}
+
+def mcVersion = profile.getProperty('minecraft_version', project.minecraft_version)
+def loaderVersion = profile.getProperty('loader_version', project.loader_version)
+def fabricVersion = profile.getProperty('fabric_version', project.fabric_version)
+def fabricApiMinVersion = profile.getProperty('fabric_api_min_version', project.fabric_api_min_version)
+def javaVersion = Integer.parseInt(profile.getProperty('java_version', project.java_version.toString()))
+
+base {
+    archivesName = project.archives_base_name
+}
+
+repositories {
+    mavenCentral()
+    maven { name = 'Fabric'; url = 'https://maven.fabricmc.net/' }
+}
+
+dependencies {
+    minecraft "com.mojang:minecraft:${mcVersion}"
+    implementation "net.fabricmc:fabric-loader:${loaderVersion}"
+    implementation "net.fabricmc.fabric-api:fabric-api:${fabricVersion}"
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(javaVersion)
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.release = javaVersion
+    options.encoding = 'UTF-8'
+}
+
+processResources {
+    inputs.property 'version', project.version
+    inputs.property 'minecraft_version', mcVersion
+    inputs.property 'loader_version', loaderVersion
+    inputs.property 'fabric_version', fabricVersion
+    inputs.property 'fabric_api_min_version', fabricApiMinVersion
+
+    filesMatching('fabric.mod.json') {
+        expand(
+            version: project.version,
+            minecraft_version: mcVersion,
+            loader_version: loaderVersion,
+            fabric_version: fabricVersion,
+            fabric_api_min_version: fabricApiMinVersion
+        )
+    }
+}
+
+jar {
+    archiveBaseName = project.archives_base_name
+    archiveVersion = project.mod_version
+    archiveClassifier = mcVersion
+}
+
+tasks.register('printVersionInfo') {
+    doLast {
+        println ''
+        println 'Auto Sprint+ build profile'
+        println '  Minecraft : ' + mcVersion
+        println '  Loader    : ' + loaderVersion
+        println '  Fabric API: ' + fabricVersion
+        println '  API minimum: ' + fabricApiMinVersion
+        println '  Java      : ' + javaVersion
+        println '  Loom      : ' + project.loom_version
+        println ''
+    }
+}
