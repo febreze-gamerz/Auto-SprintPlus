@@ -9,7 +9,7 @@ import java.lang.reflect.Method;
 /**
  * Sprint logic intentionally avoids compile-time references to Minecraft's
  * client-player classes. This keeps the mod compatible with older/newer
- * Fabric API 26.2 patch releases without requiring Fabric's injected player
+ * Fabric API patch releases without requiring Fabric's injected player
  * interfaces on the compiler classpath.
  */
 public final class SprintLogic {
@@ -34,7 +34,14 @@ public final class SprintLogic {
         // Auto Sprint is always forward-only by design.
         Object options = readField(client, "options");
         Object keyUp = options == null ? null : readField(options, "keyUp");
+        Object keyDown = options == null ? null : readField(options, "keyDown");
         if (!invokeBoolean(keyUp, "isDown")) return;
+
+        // Forward input is (W - S), as in vanilla: holding W and S together is no forward input.
+        if (invokeBoolean(keyDown, "isDown")) return;
+
+        // Respect vanilla: when the player cannot sprint (e.g. low food), do not force it.
+        if (!canSprint(player)) return;
 
         if (config.disableInWater && invokeBoolean(player, "isSwimming")) return;
         if (config.disableWhileFlying && isFlying(player)) return;
@@ -50,6 +57,17 @@ public final class SprintLogic {
             return field.get(target);
         } catch (ReflectiveOperationException ignored) {
             return null;
+        }
+    }
+
+    /** Vanilla's own canSprint() check. If the method cannot be read, allow sprinting as before. */
+    private static boolean canSprint(Object player) {
+        try {
+            Method method = findMethod(player.getClass(), "canSprint");
+            Object value = method.invoke(player);
+            return !(value instanceof Boolean b) || b;
+        } catch (ReflectiveOperationException ignored) {
+            return true;
         }
     }
 

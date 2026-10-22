@@ -32,6 +32,8 @@ public final class ConfigScreen extends Screen {
     private static final int COLUMN_GAP = 8;
     private static final int CONTENT_W = 520;
     private static final int SCROLLBAR_W = 4;
+    /** Width sentinel: the widget spans the whole content area instead of one column. */
+    private static final int FULL_WIDTH = -2;
 
     private final Screen parent;
     private final List<ButtonEntry> entries = new ArrayList<>();
@@ -42,8 +44,6 @@ public final class ConfigScreen extends Screen {
     private double scrollbarGrabOffset;
     private Button doneButton;
 
-    private int roundedOffset = -1;
-    private int opacityOffset = -1;
     private ConfigSlider roundedSlider;
     private ConfigSlider opacitySlider;
 
@@ -56,8 +56,6 @@ public final class ConfigScreen extends Screen {
     protected void init() {
         clearWidgets();
         entries.clear();
-        roundedOffset = -1;
-        opacityOffset = -1;
         roundedSlider = null;
         opacitySlider = null;
         draggingScrollbar = false;
@@ -105,7 +103,6 @@ public final class ConfigScreen extends Screen {
                 "Text Color", () -> c.textColor.getDisplayName(),
                 () -> c.textColor = c.textColor.next());
 
-        roundedOffset = row;
         roundedSlider = addSlider(left, row, "Rounded Corners",
                 () -> ConfigManager.getConfig().roundedCorners / 12.0,
                 value -> {
@@ -115,7 +112,6 @@ public final class ConfigScreen extends Screen {
                 value -> Math.round(value * 12.0) + " px");
         row += 48;
 
-        opacityOffset = row;
         opacitySlider = addSlider(left, row, "Opacity",
                 () -> {
                     float opacity = ConfigManager.getConfig().hudOpacity;
@@ -135,7 +131,7 @@ public final class ConfigScreen extends Screen {
 
         row += 8;
         row = addSection("Reset", row);
-        addButton(left, contentWidth(), 0, row, "Reset All Settings", b -> {
+        addButton(left, FULL_WIDTH, 0, row, "Reset All Settings", b -> {
             ConfigManager.reset();
             scrollOffset = 0;
             this.init();
@@ -231,11 +227,12 @@ public final class ConfigScreen extends Screen {
     }
 
     private int addButton(int x, int w, int column, int cursor, String label, Button.OnPress action) {
+        int actualW = w == FULL_WIDTH ? contentWidth() : w;
         Button button = Button.builder(Component.literal(label), action)
-                .bounds(x, 0, w, ROW_H)
+                .bounds(x, 0, actualW, ROW_H)
                 .build();
 
-        entries.add(ButtonEntry.widget(button, cursor, column));
+        entries.add(ButtonEntry.widget(button, cursor, column, w));
         addRenderableWidget(button);
         return cursor + ROW_GAP;
     }
@@ -245,8 +242,8 @@ public final class ConfigScreen extends Screen {
                                     java.util.function.Function<Double, String> valueFormatter) {
         ConfigSlider slider = new ConfigSlider(
                 x + 20, 0, Math.max(80, contentWidth() - 40), 20,
-                label, getter.get(), setter, valueFormatter);
-        entries.add(ButtonEntry.widget(slider, cursor, 0, contentWidth()));
+                label, getter, setter, valueFormatter);
+        entries.add(ButtonEntry.widget(slider, cursor, 0, FULL_WIDTH));
         addRenderableWidget(slider);
         return slider;
     }
@@ -269,7 +266,7 @@ public final class ConfigScreen extends Screen {
             if (entry.widget == null) continue;
 
             int x = entry.column == 1 ? left + colW + COLUMN_GAP : left;
-            int w = entry.width == CONTENT_W ? contentWidth() : (entry.width > 0 ? entry.width : colW);
+            int w = entry.width == FULL_WIDTH ? contentWidth() : (entry.width > 0 ? entry.width : colW);
             if (entry.widget instanceof ConfigSlider) {
                 x = left + 20;
                 w = Math.max(80, contentWidth() - 40);
@@ -467,14 +464,16 @@ public final class ConfigScreen extends Screen {
     /** Vanilla Minecraft slider widget with native slider rendering and drag handling. */
     private final class ConfigSlider extends AbstractSliderButton {
         private final String label;
+        private final Supplier<Double> getter;
         private final Consumer<Double> setter;
         private final java.util.function.Function<Double, String> valueFormatter;
 
-        private ConfigSlider(int x, int y, int width, int height, String label, double initialValue,
-                             Consumer<Double> setter,
+        private ConfigSlider(int x, int y, int width, int height, String label,
+                             Supplier<Double> getter, Consumer<Double> setter,
                              java.util.function.Function<Double, String> valueFormatter) {
-            super(x, y, width, height, Component.literal(label), initialValue);
+            super(x, y, width, height, Component.literal(label), clamp01(getter.get()));
             this.label = label;
+            this.getter = getter;
             this.setter = setter;
             this.valueFormatter = valueFormatter;
             updateMessage();
@@ -493,11 +492,12 @@ public final class ConfigScreen extends Screen {
         }
 
         private void refreshFromConfig() {
-            value = Math.max(0.0, Math.min(1.0,
-                    label.equals("Rounded Corners")
-                            ? ConfigManager.getConfig().roundedCorners / 12.0
-                            : (ConfigManager.getConfig().hudOpacity - 0.10) / 0.90));
+            value = clamp01(getter.get());
             updateMessage();
+        }
+
+        private static double clamp01(double v) {
+            return Math.max(0.0, Math.min(1.0, v));
         }
     }
 }

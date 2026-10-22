@@ -24,10 +24,8 @@ if [[ -x "./gradlew" && -f "gradle/wrapper/gradle-wrapper.jar" ]]; then
   ./gradlew clean build -Ptarget_mc="${MC_VERSION}"
 elif command -v gradle >/dev/null 2>&1; then
   gradle clean build -Ptarget_mc="${MC_VERSION}"
-elif [[ -x "$HOME/Documents/gradle-9.7.1/bin/gradle" ]]; then
-  "$HOME/Documents/gradle-9.7.1/bin/gradle" clean build -Ptarget_mc="${MC_VERSION}"
 else
   echo "Gradle was not found."
-  echo "Install/use Gradle 9.x, or restore gradle/wrapper/gradle-wrapper.jar."
+  echo "Install Gradle 9.x, or restore gradle/wrapper/gradle-wrapper.jar."
   exit 1
 fi

@@ -11,7 +11,6 @@ group = project.maven_group
 // ----------------------------------------------------------------
 // Put Minecraft-version-specific dependency values in versions/*.properties.
 // Example:
-//   ./gradlew build -Ptarget_mc=26.2
 //   ./gradlew build -Ptarget_mc=26.3
 //
 // The source code stays shared. If a future Minecraft release changes a

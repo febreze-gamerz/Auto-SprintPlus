@@ -10,9 +10,6 @@ import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.resources.Identifier;
 
-import java.lang.reflect.Constructor;
-import java.lang.reflect.InvocationTargetException;
-
 public final class ModKeybinds {
     private ModKeybinds() {}
 
@@ -39,52 +36,8 @@ public final class ModKeybinds {
         );
     }
 
-    /**
-     * Creates a keyboard key mapping without directly referencing
-     * InputConstants.Type.KEYSYM or Type.KEYBOARD.
-     *
-     * Minecraft 26.2 uses:
-     *     InputConstants.Type.KEYSYM
-     *
-     * Minecraft 26.3 uses:
-     *     InputConstants.Type.KEYBOARD
-     *
-     * Reflection keeps the main source compatible with both versions.
-     */
     private static KeyMapping createKeyMapping(String translationKey, int keyCode) {
-        try {
-            Class<InputConstants.Type> typeClass = InputConstants.Type.class;
-
-            InputConstants.Type keyboardType;
-
-            try {
-                // Minecraft 26.3+
-                keyboardType = Enum.valueOf(typeClass, "KEYBOARD");
-            } catch (IllegalArgumentException ignored) {
-                // Minecraft 26.2 and older
-                keyboardType = Enum.valueOf(typeClass, "KEYSYM");
-            }
-
-            Constructor<KeyMapping> constructor = KeyMapping.class.getConstructor(
-                    String.class,
-                    typeClass,
-                    int.class,
-                    KeyMapping.Category.class
-            );
-
-            return constructor.newInstance(
-                    translationKey,
-                    keyboardType,
-                    keyCode,
-                    CATEGORY
-            );
-
-        } catch (ReflectiveOperationException e) {
-            throw new IllegalStateException(
-                    "Auto Sprint+ could not create a keyboard key mapping for this Minecraft version.",
-                    e
-            );
-        }
+        return new KeyMapping(translationKey, InputConstants.Type.KEYBOARD, keyCode, CATEGORY);
     }
 
     public static void handle(Minecraft client) {
