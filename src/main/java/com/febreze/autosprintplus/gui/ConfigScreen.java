@@ -1,0 +1,497 @@
+package com.febreze.autosprintplus.gui;
+
+import com.febreze.autosprintplus.config.ConfigManager;
+import com.febreze.autosprintplus.config.ModConfig;
+
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.AbstractSliderButton;
+import net.minecraft.client.gui.components.AbstractWidget;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.network.chat.Component;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.Consumer;
+import java.util.function.Function;
+import java.util.function.Supplier;
+
+/**
+ * Auto Sprint+ main configuration screen.
+ *
+ * Vanilla Options style: translucent backdrop, centered title, two-column
+ * vanilla buttons, sliders, and a scrollable content area.
+ */
+public final class ConfigScreen extends MouseScreen {
+    private static final int CONTENT_TOP = 58;
+    private static final int CONTENT_BOTTOM = 42;
+    private static final int ROW_H = 24;
+    private static final int ROW_GAP = 26;
+    private static final int COLUMN_GAP = 8;
+    private static final int CONTENT_W = 520;
+    /** Width sentinel: the widget spans the whole content area instead of one column. */
+    private static final int FULL_WIDTH = -2;
+    private static final int SCROLLBAR_W = 4;
+
+    private final Screen parent;
+    private final List<ButtonEntry> entries = new ArrayList<>();
+
+    private double scrollOffset;
+    private int contentHeight;
+    private boolean draggingScrollbar;
+    private double scrollbarGrabOffset;
+    private Button doneButton;
+
+    private int roundedOffset = -1;
+    private int opacityOffset = -1;
+    private ConfigSlider roundedSlider;
+    private ConfigSlider opacitySlider;
+
+    public ConfigScreen(Screen parent) {
+        super(Component.literal("Auto Sprint+"));
+        this.parent = parent;
+    }
+
+    @Override
+    protected void init() {
+        clearWidgets();
+        entries.clear();
+        roundedOffset = -1;
+        opacityOffset = -1;
+        roundedSlider = null;
+        opacitySlider = null;
+        draggingScrollbar = false;
+
+        ModConfig c = ConfigManager.getConfig();
+        c.ensureValid();
+
+        int left = contentLeft();
+        int colW = (contentWidth() - COLUMN_GAP) / 2;
+        int row = 0;
+
+        row = addSection("Auto Sprint", row);
+        row = addTogglePair(left, colW, row,
+                "Auto Sprint", () -> c.autoSprintEnabled,
+                value -> c.autoSprintEnabled = value,
+                "Disable While Swimming", () -> c.disableInWater,
+                value -> c.disableInWater = value);
+        row = addToggleRow(left, colW, row,
+                "Disable While Flying", () -> c.disableWhileFlying,
+                value -> c.disableWhileFlying = value);
+
+        row += 8;
+        row = addSection("HUD", row);
+        row = addTogglePair(left, colW, row,
+                "HUD Enabled", () -> c.hudEnabled,
+                value -> c.hudEnabled = value,
+                "Background", () -> c.hudBackground,
+                value -> c.hudBackground = value);
+
+        row = addCyclePair(left, colW, row,
+                "Background Color", () -> c.backgroundColor.getDisplayName(),
+                () -> c.backgroundColor = c.backgroundColor.next(),
+                "Border Color", () -> c.borderColor.getDisplayName(),
+                () -> c.borderColor = c.borderColor.next());
+
+        row = addTogglePair(left, colW, row,
+                "Border", () -> c.borderEnabled,
+                value -> c.borderEnabled = value,
+                "Text Shadow", () -> c.textShadow,
+                value -> c.textShadow = value);
+
+        row = addCyclePair(left, colW, row,
+                "Border Width", () -> c.borderWidth + " px",
+                () -> c.borderWidth = c.borderWidth >= 4 ? 0 : c.borderWidth + 1,
+                "Text Color", () -> c.textColor.getDisplayName(),
+                () -> c.textColor = c.textColor.next());
+
+        roundedOffset = row;
+        roundedSlider = addSlider(left, row, "Rounded Corners",
+                () -> ConfigManager.getConfig().roundedCorners / 12.0,
+                value -> ConfigManager.getConfig().roundedCorners = (int) Math.round(value * 12.0),
+                value -> Math.round(value * 12.0) + " px");
+        row += 48;
+
+        opacityOffset = row;
+        opacitySlider = addSlider(left, row, "Opacity",
+                () -> {
+                    float opacity = ConfigManager.getConfig().hudOpacity;
+                    return Math.max(0.0, Math.min(1.0, (opacity - 0.10) / 0.90));
+                },
+                value -> ConfigManager.getConfig().hudOpacity = (float) (0.10 + value * 0.90),
+                value -> Math.round((0.10 + value * 0.90) * 100.0) + "%");
+        row += 48;
+
+        row = addButtonPair(left, colW, row,
+                "Edit HUD", b -> Minecraft.getInstance().setScreen(new HudEditorScreen(this)),
+                "Reset HUD", b -> {
+                    c.resetHud();
+                    ConfigManager.save();
+                    updateSliderWidgets();
+                });
+
+        row += 8;
+        row = addSection("Reset", row);
+        addButton(left, FULL_WIDTH, 0, row, "Reset All Settings", b -> {
+            ConfigManager.reset();
+            scrollOffset = 0;
+            this.init();
+        });
+
+        contentHeight = row + 28;
+
+        doneButton = Button.builder(Component.literal("Done"), b -> onClose())
+                .bounds(left, height - 28, CONTENT_W, 20)
+                .build();
+        addRenderableWidget(doneButton);
+
+        clampScroll();
+        updateLayout();
+    }
+
+    private int contentWidth() {
+        // Keep the two-column layout usable at high GUI scales.
+        return Math.min(CONTENT_W, Math.max(280, width - 32));
+    }
+
+    private int contentLeft() {
+        return (width - contentWidth()) / 2;
+    }
+
+    private int addSection(String title, int cursor) {
+        entries.add(ButtonEntry.section(title, cursor));
+        return cursor + 30;
+    }
+
+    private int addTogglePair(int left, int colW, int row,
+                              String leftLabel, Supplier<Boolean> leftGetter, Consumer<Boolean> leftSetter,
+                              String rightLabel, Supplier<Boolean> rightGetter, Consumer<Boolean> rightSetter) {
+        addToggle(left, colW, 0, row, leftLabel, leftGetter, leftSetter);
+        addToggle(left + colW + COLUMN_GAP, colW, 1, row, rightLabel, rightGetter, rightSetter);
+        return row + ROW_GAP;
+    }
+
+    private int addToggleRow(int left, int colW, int row,
+                             String label, Supplier<Boolean> getter, Consumer<Boolean> setter) {
+        addToggle(left, colW, 0, row, label, getter, setter);
+        return row + ROW_GAP;
+    }
+
+    private int addCyclePair(int left, int colW, int row,
+                             String leftLabel, Supplier<String> leftGetter, Runnable leftAction,
+                             String rightLabel, Supplier<String> rightGetter, Runnable rightAction) {
+        addCycle(left, colW, 0, row, leftLabel, leftGetter, leftAction);
+        addCycle(left + colW + COLUMN_GAP, colW, 1, row, rightLabel, rightGetter, rightAction);
+        return row + ROW_GAP;
+    }
+
+    private int addButtonPair(int left, int colW, int row,
+                              String leftLabel, Button.OnPress leftAction,
+                              String rightLabel, Button.OnPress rightAction) {
+        addButton(left, colW, 0, row, leftLabel, leftAction);
+        addButton(left + colW + COLUMN_GAP, colW, 1, row, rightLabel, rightAction);
+        return row + ROW_GAP;
+    }
+
+    private int addToggle(int x, int w, int column, int cursor, String label,
+                          Supplier<Boolean> getter, Consumer<Boolean> setter) {
+        Button button = Button.builder(
+                optionText(label, getter.get()),
+                b -> {
+                    boolean next = !getter.get();
+                    setter.accept(next);
+                    ConfigManager.save();
+                    b.setMessage(optionText(label, next));
+                }
+        ).bounds(x, 0, w, ROW_H).build();
+
+        entries.add(ButtonEntry.widget(button, cursor, column));
+        addRenderableWidget(button);
+        return cursor + ROW_GAP;
+    }
+
+    private int addCycle(int x, int w, int column, int cursor, String label,
+                         Supplier<String> getter, Runnable action) {
+        Button button = Button.builder(
+                optionText(label, getter.get()),
+                b -> {
+                    action.run();
+                    ConfigManager.save();
+                    b.setMessage(optionText(label, getter.get()));
+                }
+        ).bounds(x, 0, w, ROW_H).build();
+
+        entries.add(ButtonEntry.widget(button, cursor, column));
+        addRenderableWidget(button);
+        return cursor + ROW_GAP;
+    }
+
+    private int addButton(int x, int w, int column, int cursor, String label, Button.OnPress action) {
+        int actualW = w == FULL_WIDTH ? contentWidth() : w;
+        Button button = Button.builder(Component.literal(label), action)
+                .bounds(x, 0, actualW, ROW_H)
+                .build();
+
+        entries.add(ButtonEntry.widget(button, cursor, column, w));
+        addRenderableWidget(button);
+        return cursor + ROW_GAP;
+    }
+
+    private ConfigSlider addSlider(int x, int cursor, String label,
+                                   Supplier<Double> getter, Consumer<Double> setter,
+                                   Function<Double, String> valueFormatter) {
+        ConfigSlider slider = new ConfigSlider(
+                x + 20, 0, Math.max(80, contentWidth() - 40), 20,
+                label, getter.get(), setter, valueFormatter);
+        entries.add(ButtonEntry.widget(slider, cursor, 0, contentWidth()));
+        addRenderableWidget(slider);
+        return slider;
+    }
+
+    private Component optionText(String label, boolean value) {
+        return Component.literal(label + ": " + (value ? "ON" : "OFF"));
+    }
+
+    private Component optionText(String label, String value) {
+        return Component.literal(label + ": " + value);
+    }
+
+    private void updateLayout() {
+        int left = contentLeft();
+        int colW = (contentWidth() - COLUMN_GAP) / 2;
+        int visibleTop = CONTENT_TOP;
+        int visibleBottom = height - CONTENT_BOTTOM;
+
+        for (ButtonEntry entry : entries) {
+            if (entry.widget == null) continue;
+
+            int x = entry.column == 1 ? left + colW + COLUMN_GAP : left;
+            int w = entry.width == FULL_WIDTH ? contentWidth() : (entry.width > 0 ? entry.width : colW);
+            if (entry.widget instanceof ConfigSlider) {
+                x = left + 20;
+                w = Math.max(80, contentWidth() - 40);
+            }
+            int y = visibleTop + entry.offset - (int) scrollOffset;
+            boolean visible = y + ROW_H >= visibleTop && y <= visibleBottom;
+
+            entry.widget.setX(x);
+            entry.widget.setY(y);
+            entry.widget.setWidth(w);
+            entry.widget.visible = visible;
+            entry.widget.active = visible;
+        }
+
+        if (doneButton != null) {
+            doneButton.setX(left);
+            doneButton.setY(height - 28);
+            doneButton.setWidth(contentWidth());
+        }
+    }
+
+    private void updateSliderWidgets() {
+        if (roundedSlider != null) roundedSlider.refreshFromConfig();
+        if (opacitySlider != null) opacitySlider.refreshFromConfig();
+        updateLayout();
+    }
+
+    private void clampScroll() {
+        int visibleHeight = Math.max(1, height - CONTENT_TOP - CONTENT_BOTTOM);
+        double max = Math.max(0.0, contentHeight - visibleHeight);
+        scrollOffset = Math.max(0.0, Math.min(max, scrollOffset));
+    }
+
+    private int scrollbarTrackHeight() {
+        return Math.max(1, height - CONTENT_TOP - CONTENT_BOTTOM);
+    }
+
+    private int scrollbarThumbHeight(int trackH) {
+        return Math.max(28, (int) ((trackH * (double) trackH) / Math.max(trackH, contentHeight)));
+    }
+
+    private int scrollbarThumbY(int trackH, int thumbH) {
+        int usable = Math.max(1, trackH - thumbH);
+        int maxScroll = Math.max(1, contentHeight - trackH);
+        return CONTENT_TOP + (int) (usable * (scrollOffset / maxScroll));
+    }
+
+    private boolean insideContent(double mouseX, double mouseY) {
+        int left = contentLeft();
+        return mouseX >= left && mouseX <= left + contentWidth()
+                && mouseY >= CONTENT_TOP && mouseY <= height - CONTENT_BOTTOM;
+    }
+
+    @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
+        if (insideContent(mouseX, mouseY)) {
+            scrollOffset -= scrollY * 24.0;
+            clampScroll();
+            updateLayout();
+            return true;
+        }
+        return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
+    }
+
+    @Override
+    protected boolean onPress(double mouseX, double mouseY, int button) {
+        if (button != 0) return false;
+
+        int trackH = scrollbarTrackHeight();
+        int trackX = contentLeft() + contentWidth() + 8;
+        if (contentHeight > trackH && mouseX >= trackX - 5 && mouseX <= trackX + SCROLLBAR_W + 5
+                && mouseY >= CONTENT_TOP && mouseY <= CONTENT_TOP + trackH) {
+            int thumbH = scrollbarThumbHeight(trackH);
+            int thumbY = scrollbarThumbY(trackH, thumbH);
+            if (mouseY >= thumbY && mouseY <= thumbY + thumbH) {
+                draggingScrollbar = true;
+                scrollbarGrabOffset = mouseY - thumbY;
+                return true;
+            }
+        }
+        return false;
+    }
+
+    @Override
+    protected boolean onDrag(double mouseX, double mouseY, int button) {
+        if (!draggingScrollbar) return false;
+
+        int trackH = scrollbarTrackHeight();
+        int thumbH = scrollbarThumbHeight(trackH);
+        double usable = Math.max(1.0, trackH - thumbH);
+        double top = Math.max(0.0, Math.min(usable, mouseY - CONTENT_TOP - scrollbarGrabOffset));
+        double max = Math.max(0.0, contentHeight - trackH);
+        scrollOffset = max * (top / usable);
+        updateLayout();
+        return true;
+    }
+
+    @Override
+    protected boolean onRelease(double mouseX, double mouseY, int button) {
+        if (button != 0 || !draggingScrollbar) return false;
+        draggingScrollbar = false;
+        ConfigManager.save();
+        return true;
+    }
+
+    @Override
+    public void render(GuiGraphics graphics, int mouseX, int mouseY, float delta) {
+        // The background is drawn explicitly in renderBackground(), which is
+        // intentionally empty, so Screen.render() does not paint over the GUI.
+        ModConfig c = ConfigManager.getConfig();
+        c.ensureValid();
+
+        // Vanilla-style transparent backdrop: keep the world/menu behind it visible.
+        graphics.fill(0, 0, width, height, 0x55000000);
+
+        Font font = Minecraft.getInstance().font;
+        drawCentered(graphics, font, "Auto Sprint+", width / 2, 15, 0xFFFFFFFF);
+        drawCentered(graphics, font, "Auto Sprint+ Settings", width / 2, 29, 0xFFAAAAAA);
+
+        int left = contentLeft();
+        int trackH = scrollbarTrackHeight();
+
+        for (ButtonEntry entry : entries) {
+            if (!entry.section) continue;
+            int y = CONTENT_TOP + entry.offset - (int) scrollOffset;
+            if (y >= CONTENT_TOP - 12 && y <= height - CONTENT_BOTTOM) {
+                drawCentered(graphics, font, entry.sectionTitle, width / 2, y, 0xFFBFBFBF);
+                graphics.fill(left, y + 16, left + contentWidth(), y + 17, 0x55555555);
+            }
+        }
+
+        if (contentHeight > trackH) {
+            int x = left + contentWidth() + 8;
+            graphics.fill(x, CONTENT_TOP, x + SCROLLBAR_W, CONTENT_TOP + trackH, 0x55333333);
+            int thumbH = scrollbarThumbHeight(trackH);
+            int thumbY = scrollbarThumbY(trackH, thumbH);
+            graphics.fill(x - 1, thumbY, x + SCROLLBAR_W + 1, thumbY + thumbH, 0xFFAAAAAA);
+        }
+
+        graphics.fill(left, height - CONTENT_BOTTOM, left + contentWidth(), height - CONTENT_BOTTOM + 1, 0x55555555);
+
+        super.render(graphics, mouseX, mouseY, delta);
+    }
+
+    private static void drawCentered(GuiGraphics graphics, Font font, String text, int centerX, int y, int color) {
+        graphics.drawString(font, text, centerX - font.width(text) / 2, y, color, false);
+    }
+
+    @Override
+    public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float delta) {
+        // Intentionally empty; see render().
+    }
+
+    @Override
+    public void onClose() {
+        ConfigManager.save();
+        Minecraft.getInstance().setScreen(parent);
+    }
+
+    private static final class ButtonEntry {
+        final AbstractWidget widget;
+        final int offset;
+        final int column;
+        final int width;
+        final boolean section;
+        final String sectionTitle;
+
+        private ButtonEntry(AbstractWidget widget, int offset, int column, int width,
+                            boolean section, String sectionTitle) {
+            this.widget = widget;
+            this.offset = offset;
+            this.column = column;
+            this.width = width;
+            this.section = section;
+            this.sectionTitle = sectionTitle;
+        }
+
+        static ButtonEntry widget(AbstractWidget widget, int offset, int column) {
+            return new ButtonEntry(widget, offset, column, -1, false, "");
+        }
+
+        static ButtonEntry widget(AbstractWidget widget, int offset, int column, int width) {
+            return new ButtonEntry(widget, offset, column, width, false, "");
+        }
+
+        static ButtonEntry section(String title, int offset) {
+            return new ButtonEntry(null, offset, 0, 0, true, title);
+        }
+    }
+
+    /** Vanilla slider widget; it owns its own mouse handling and value label. */
+    private final class ConfigSlider extends AbstractSliderButton {
+        private final String label;
+        private final Consumer<Double> setter;
+        private final Function<Double, String> valueFormatter;
+
+        private ConfigSlider(int x, int y, int width, int height, String label, double initialValue,
+                             Consumer<Double> setter, Function<Double, String> valueFormatter) {
+            super(x, y, width, height, Component.literal(label), initialValue);
+            this.label = label;
+            this.setter = setter;
+            this.valueFormatter = valueFormatter;
+            updateMessage();
+        }
+
+        @Override
+        protected void updateMessage() {
+            setMessage(Component.literal(label + ": " + valueFormatter.apply(value)));
+        }
+
+        @Override
+        protected void applyValue() {
+            setter.accept(value);
+            ConfigManager.save();
+            updateMessage();
+        }
+
+        private void refreshFromConfig() {
+            value = Math.max(0.0, Math.min(1.0,
+                    label.equals("Rounded Corners")
+                            ? ConfigManager.getConfig().roundedCorners / 12.0
+                            : (ConfigManager.getConfig().hudOpacity - 0.10) / 0.90));
+            updateMessage();
+        }
+    }
+}

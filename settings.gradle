@@ -1,12 +1,9 @@
 pluginManagement {
     repositories {
-        maven {
-            name = 'Fabric'
-            url = 'https://maven.fabricmc.net/'
-        }
-        mavenCentral()
+        maven { url = 'https://maven.fabricmc.net/' }
         gradlePluginPortal()
+        mavenCentral()
     }
 }
-
-rootProject.name = 'auto-sprint-plus'
+rootProject.name = 'Auto-SprintPlus-Grouped'
+include 'legacy', 'modern'

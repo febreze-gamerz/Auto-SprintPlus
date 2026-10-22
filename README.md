@@ -1,42 +1,35 @@
-# Auto Sprint+ - Sprint Without Control
+# Auto-SprintPlus 1.3 — Grouped Multi-Version Build
 
-A lightweight, customizable **client-side Fabric mod** that lets you sprint automatically without holding or pressing Ctrl.
+This project shares one `src/` folder and one root `build/` folder, and produces two JARs:
 
----
+- **Legacy JAR:** Minecraft 1.21–1.21.8 (legacy mouse-event API)
+- **Modern JAR:** Minecraft 1.21.9–1.21.11 (modern mouse-event API)
 
-**Auto Sprint+** lets you toggle automatic sprinting in-game, customize your keybind, and personalize your sprint HUD.
+## Requirements
+- Java 21
+- Internet connection for the first Gradle build
 
-![Keybind Changing](https://cdn.modrinth.com/data/cached_images/a213d5277afa9bf992a1c4264b7f408cca090f7d_0.webp)
+## Build both JARs
+From this directory run:
 
-## Key Features
+```bash
+chmod +x gradlew
+./gradlew clean build
+```
 
-### Movement
+Output JARs should be in `build/legacy/libs/` and `build/modern/libs/`.
 
-* **Auto-Sprint Toggle**: Automatically sprint when moving forward.
-* **Toggle Modes**: Choose between Auto Sprint+ and Vanilla sprinting.
-* **Context-Aware Sprinting**: Configure sprinting behavior while swimming or flying.
+## Notes
+These JARs are grouped by the source-level mouse API boundary. Each is compiled against the oldest Minecraft version in its group, so the code only uses APIs available across the whole range. Minecraft/Fabric compatibility across every version in each range still needs testing in-game. The build has not been validated against downloaded dependencies in this environment.
 
-### HUD & Editor
+## Fixes in this version (HUD and editor)
 
-* **Drag-and-Drop HUD**: Easily position your sprint status anywhere on screen.
-* **Grid Snapping**: Snap your HUD to the grid, center, or screen edges.
-* **HUD Customization**: Change colors, opacity, scale, borders, and text.
-
----
-
-# Community
-
-<div align="center">
-  <a href="https://discord.com/invite/JjrcaTUny7"><img src="https://imgur.com/kQhkAEH.png" alt="Discord" height="40"></a>
-  <a href="https://modrinth.com/mod/auto-sprintplus"><img src="https://imgur.com/LXpffDC.png" alt="Modrinth" height="40"></a>
-  <a href="https://www.curseforge.com/minecraft/mc-mods/auto-sprintplus"><img src="https://imgur.com/wS6UpF4.png" alt="CurseForge" height="40"></a>
-</div>
-
----
-
-## 🛠️ Installation
-
-1. Install **Fabric Loader** for your Minecraft version.
-2. Download **Auto Sprint+** from [Modrinth](https://modrinth.com/mod/auto-sprintplus) or [CurseForge](https://www.curseforge.com/minecraft/mc-mods/auto-sprintplus).
-3. Place the `.jar` file into your `.minecraft/mods` folder.
-4. Launch Minecraft and configure your settings!
+- **Text escaping the HUD box:** the box was a fixed 190×26 scaled by HUD scale, while the text used its own text scale. Large text overflowed small boxes. The box is now sized from the text (never smaller than the base size), so the text always fits.
+- **Text not scaling with the HUD:** text scale is now HUD scale × text scale, so scaling the HUD scales its text too. The text scale slider still works as an extra multiplier.
+- **Corners and border:** rounded corners and border width scale with the HUD.
+- **Text drawn at the screen corner:** if the pose-stack transform methods could not be found, the text was drawn with no transform at the screen origin. Now it is drawn unscaled at its correct position in that case.
+- **Editor hit-testing:** dragging used the base size, not the drawn size, and clicks on the editor panel could start a HUD drag. Both now use the drawn size, and clicks on the panel go to its buttons.
+- **Editor toggles:** their on/off state was read from button text. It now comes from the config directly.
+- **Reset All Settings** button: it was drawn at half width. It is full width again.
+- **Legacy jar range:** the jar compiles against Minecraft 1.21 (the oldest version in its range) and requires Fabric API 0.102.0+1.21 or newer, so it loads on 1.21 through 1.21.8. Compiling against the oldest version guarantees the code only uses APIs that exist across the whole range.
+- **HUD registration fallback:** if the newer HUD API is present but unusable, the mod falls back to the older HUD callback instead of failing.
