@@ -126,14 +126,12 @@ public final class HudEditorScreen extends Screen {
         drawGrid(graphics, c);
         drawCenterGuides(graphics, c);
 
-        float hudScale = c.hudScale;
-        float hudW = 190.0f * hudScale;
-        float hudH = 26.0f * hudScale;
-        float hudX = HudRenderer.resolveX(c, width, hudW);
-        float hudY = HudRenderer.resolveY(c, height, hudH);
+        float[] sz = HudRenderer.size(c);
+        float hudX = HudRenderer.resolveX(c, width, sz[0]);
+        float hudY = HudRenderer.resolveY(c, height, sz[1]);
 
         // Show the real background/stroke settings while editing.
-        HudRenderer.renderHudBox(graphics, hudX, hudY, hudScale, false, true);
+        HudRenderer.renderHudBox(graphics, hudX, hudY, c, false, true);
 
         int panelW = Math.min(PANEL_W, Math.max(280, width - 20));
         int panelH = Math.min(PANEL_H, Math.max(220, height - 20));
@@ -173,12 +171,21 @@ public final class HudEditorScreen extends Screen {
         graphics.fill(0, height / 2, width, height / 2 + 1, 0x5533AAFF);
     }
 
+    private boolean insidePanel(double mouseX, double mouseY) {
+        int panelW = Math.min(PANEL_W, Math.max(280, width - 20));
+        int panelH = Math.min(PANEL_H, Math.max(220, height - 20));
+        int panelX = (width - panelW) / 2;
+        int panelY = (height - panelH) / 2;
+        return mouseX >= panelX && mouseX <= panelX + panelW && mouseY >= panelY && mouseY <= panelY + panelH;
+    }
+
     @Override
     public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
-        if (event.button() == 0) {
+        if (event.button() == 0 && !insidePanel(event.x(), event.y())) {
             ModConfig c = ConfigManager.getConfig();
-            float w = 190.0f * c.hudScale;
-            float h = 26.0f * c.hudScale;
+            float[] sz = HudRenderer.size(c);
+            float w = sz[0];
+            float h = sz[1];
             float x = HudRenderer.resolveX(c, width, w);
             float y = HudRenderer.resolveY(c, height, h);
 
@@ -196,8 +203,9 @@ public final class HudEditorScreen extends Screen {
     public boolean mouseDragged(MouseButtonEvent event, double dragX, double dragY) {
         if (draggingHud && event.button() == 0) {
             ModConfig c = ConfigManager.getConfig();
-            float w = 190.0f * c.hudScale;
-            float h = 26.0f * c.hudScale;
+            float[] sz = HudRenderer.size(c);
+            float w = sz[0];
+            float h = sz[1];
             float x = (float) (event.x() - dragOffsetX);
             float y = (float) (event.y() - dragOffsetY);
 
