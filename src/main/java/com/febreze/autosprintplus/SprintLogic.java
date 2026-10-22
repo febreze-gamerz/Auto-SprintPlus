@@ -5,15 +5,23 @@ import com.febreze.autosprintplus.config.ModConfig;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.util.Arrays;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Sprint logic intentionally avoids compile-time references to Minecraft's
  * client-player classes. This keeps the mod compatible with older/newer
- * Fabric API 26.2 patch releases without requiring Fabric's injected player
+ * Fabric API patch releases without requiring Fabric's injected player
  * interfaces on the compiler classpath.
  */
 public final class SprintLogic {
     private SprintLogic() {}
+
+    // Reflection lookups are cached: the tick runs every game tick, and searching
+    // the class hierarchy each time is wasteful.
+    private static final Map<String, Method> METHOD_CACHE = new ConcurrentHashMap<>();
+    private static final Map<String, Field> FIELD_CACHE = new ConcurrentHashMap<>();
 
     /**
      * Accept Object on purpose: referencing Minecraft directly from this class
@@ -34,7 +42,14 @@ public final class SprintLogic {
         // Auto Sprint is always forward-only by design.
         Object options = readField(client, "options");
         Object keyUp = options == null ? null : readField(options, "keyUp");
+        Object keyDown = options == null ? null : readField(options, "keyDown");
         if (!invokeBoolean(keyUp, "isDown")) return;
+
+        // Forward input is (W - S), as in vanilla: holding W and S together is no forward input.
+        if (invokeBoolean(keyDown, "isDown")) return;
+
+        // Respect vanilla: when the player cannot sprint (e.g. low food), do not force it.
+        if (!canSprint(player)) return;
 
         if (config.disableInWater && invokeBoolean(player, "isSwimming")) return;
         if (config.disableWhileFlying && isFlying(player)) return;
@@ -50,6 +65,17 @@ public final class SprintLogic {
             return field.get(target);
         } catch (ReflectiveOperationException ignored) {
             return null;
+        }
+    }
+
+    /** Vanilla's own canSprint() check. If the method cannot be read, allow sprinting as before. */
+    private static boolean canSprint(Object player) {
+        try {
+            Method method = findMethod(player.getClass(), "canSprint");
+            Object value = method.invoke(player);
+            return !(value instanceof Boolean b) || b;
+        } catch (ReflectiveOperationException ignored) {
+            return true;
         }
     }
 
@@ -96,6 +122,20 @@ public final class SprintLogic {
             String name,
             Class<?>... parameterTypes
     ) throws NoSuchMethodException {
+        String key = type.getName() + "#" + name + Arrays.toString(parameterTypes);
+        Method method = METHOD_CACHE.get(key);
+        if (method == null) {
+            method = lookupMethod(type, name, parameterTypes);
+            METHOD_CACHE.put(key, method);
+        }
+        return method;
+    }
+
+    private static Method lookupMethod(
+            Class<?> type,
+            String name,
+            Class<?>... parameterTypes
+    ) throws NoSuchMethodException {
         Class<?> current = type;
 
         while (current != null) {
@@ -115,6 +155,19 @@ public final class SprintLogic {
     }
 
     private static Field findField(
+            Class<?> type,
+            String name
+    ) throws NoSuchFieldException {
+        String key = type.getName() + "#" + name;
+        Field field = FIELD_CACHE.get(key);
+        if (field == null) {
+            field = lookupField(type, name);
+            FIELD_CACHE.put(key, field);
+        }
+        return field;
+    }
+
+    private static Field lookupField(
             Class<?> type,
             String name
     ) throws NoSuchFieldException {

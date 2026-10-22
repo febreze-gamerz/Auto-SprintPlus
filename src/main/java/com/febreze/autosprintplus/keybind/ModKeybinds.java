@@ -21,19 +21,23 @@ public final class ModKeybinds {
     public static KeyMapping toggleSprintKey;
 
     public static void register() {
-        openGuiKey = KeyMappingHelper.registerKeyMapping(new KeyMapping(
-                "key.auto-sprint-plus.open_gui",
-                InputConstants.Type.KEYSYM,
-                InputConstants.KEY_Y,
-                CATEGORY
-        ));
+        openGuiKey = KeyMappingHelper.registerKeyMapping(
+                createKeyMapping(
+                        "key.auto-sprint-plus.open_gui",
+                        InputConstants.KEY_Y
+                )
+        );
 
-        toggleSprintKey = KeyMappingHelper.registerKeyMapping(new KeyMapping(
-                "key.auto-sprint-plus.toggle_sprint",
-                InputConstants.Type.KEYSYM,
-                InputConstants.UNKNOWN.getValue(),
-                CATEGORY
-        ));
+        toggleSprintKey = KeyMappingHelper.registerKeyMapping(
+                createKeyMapping(
+                        "key.auto-sprint-plus.toggle_sprint",
+                        InputConstants.UNKNOWN.getValue()
+                )
+        );
+    }
+
+    private static KeyMapping createKeyMapping(String translationKey, int keyCode) {
+        return new KeyMapping(translationKey, InputConstants.Type.KEYSYM, keyCode, CATEGORY);
     }
 
     public static void handle(Minecraft client) {
@@ -42,7 +46,9 @@ public final class ModKeybinds {
         }
 
         while (toggleSprintKey.consumeClick()) {
-            ConfigManager.getConfig().autoSprintEnabled = !ConfigManager.getConfig().autoSprintEnabled;
+            ConfigManager.getConfig().autoSprintEnabled =
+                    !ConfigManager.getConfig().autoSprintEnabled;
+
             ConfigManager.save();
         }
     }

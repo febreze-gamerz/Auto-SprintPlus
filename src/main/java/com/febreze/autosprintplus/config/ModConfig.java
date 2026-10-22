@@ -53,6 +53,11 @@ public class ModConfig {
         if (hudOpacity < 0.0f || hudOpacity > 1.0f || Float.isNaN(hudOpacity)) hudOpacity = 0.85f;
         if (roundedCorners < 0 || roundedCorners > 12) roundedCorners = 6;
         if (borderWidth < 0 || borderWidth > 4) borderWidth = 1;
+
+        if (!Float.isFinite(hudX)) hudX = 10.0f;
+        if (!Float.isFinite(hudY)) hudY = 10.0f;
+        if (!Float.isFinite(hudNormalizedX)) hudNormalizedX = -1.0f;
+        if (!Float.isFinite(hudNormalizedY)) hudNormalizedY = -1.0f;
     }
 
     public void resetHud() {

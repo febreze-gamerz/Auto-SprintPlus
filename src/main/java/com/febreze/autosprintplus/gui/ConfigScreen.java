@@ -5,6 +5,8 @@ import com.febreze.autosprintplus.config.ModConfig;
 import com.febreze.autosprintplus.hud.HudColor;
 
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.components.AbstractSliderButton;
+import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.MouseButtonEvent;
@@ -30,6 +32,8 @@ public final class ConfigScreen extends Screen {
     private static final int COLUMN_GAP = 8;
     private static final int CONTENT_W = 520;
     private static final int SCROLLBAR_W = 4;
+    /** Width sentinel: the widget spans the whole content area instead of one column. */
+    private static final int FULL_WIDTH = -2;
 
     private final Screen parent;
     private final List<ButtonEntry> entries = new ArrayList<>();
@@ -40,10 +44,8 @@ public final class ConfigScreen extends Screen {
     private double scrollbarGrabOffset;
     private Button doneButton;
 
-    private int roundedOffset = -1;
-    private int opacityOffset = -1;
-    private boolean draggingRounded;
-    private boolean draggingOpacity;
+    private ConfigSlider roundedSlider;
+    private ConfigSlider opacitySlider;
 
     public ConfigScreen(Screen parent) {
         super(Component.literal("Auto Sprint+"));
@@ -54,11 +56,9 @@ public final class ConfigScreen extends Screen {
     protected void init() {
         clearWidgets();
         entries.clear();
-        roundedOffset = -1;
-        opacityOffset = -1;
+        roundedSlider = null;
+        opacitySlider = null;
         draggingScrollbar = false;
-        draggingRounded = false;
-        draggingOpacity = false;
 
         ModConfig c = ConfigManager.getConfig();
         c.ensureValid();
@@ -103,9 +103,22 @@ public final class ConfigScreen extends Screen {
                 "Text Color", () -> c.textColor.getDisplayName(),
                 () -> c.textColor = c.textColor.next());
 
-        roundedOffset = row;
+        roundedSlider = addSlider(left, row, "Rounded Corners",
+                () -> ConfigManager.getConfig().roundedCorners / 12.0,
+                value -> {
+                    ModConfig config = ConfigManager.getConfig();
+                    config.roundedCorners = (int) Math.round(value * 12.0);
+                },
+                value -> Math.round(value * 12.0) + " px");
         row += 48;
-        opacityOffset = row;
+
+        opacitySlider = addSlider(left, row, "Opacity",
+                () -> {
+                    float opacity = ConfigManager.getConfig().hudOpacity;
+                    return Math.max(0.0, Math.min(1.0, (opacity - 0.10) / 0.90));
+                },
+                value -> ConfigManager.getConfig().hudOpacity = (float) (0.10 + value * 0.90),
+                value -> Math.round((0.10 + value * 0.90) * 100.0) + "%");
         row += 48;
 
         row = addButtonPair(left, colW, row,
@@ -118,7 +131,7 @@ public final class ConfigScreen extends Screen {
 
         row += 8;
         row = addSection("Reset", row);
-        addButton(left, contentWidth(), 0, row, "Reset All Settings", b -> {
+        addButton(left, FULL_WIDTH, 0, row, "Reset All Settings", b -> {
             ConfigManager.reset();
             scrollOffset = 0;
             this.init();
@@ -214,13 +227,25 @@ public final class ConfigScreen extends Screen {
     }
 
     private int addButton(int x, int w, int column, int cursor, String label, Button.OnPress action) {
+        int actualW = w == FULL_WIDTH ? contentWidth() : w;
         Button button = Button.builder(Component.literal(label), action)
-                .bounds(x, 0, w, ROW_H)
+                .bounds(x, 0, actualW, ROW_H)
                 .build();
 
-        entries.add(ButtonEntry.widget(button, cursor, column));
+        entries.add(ButtonEntry.widget(button, cursor, column, w));
         addRenderableWidget(button);
         return cursor + ROW_GAP;
+    }
+
+    private ConfigSlider addSlider(int x, int cursor, String label,
+                                    Supplier<Double> getter, Consumer<Double> setter,
+                                    java.util.function.Function<Double, String> valueFormatter) {
+        ConfigSlider slider = new ConfigSlider(
+                x + 20, 0, Math.max(80, contentWidth() - 40), 20,
+                label, getter, setter, valueFormatter);
+        entries.add(ButtonEntry.widget(slider, cursor, 0, FULL_WIDTH));
+        addRenderableWidget(slider);
+        return slider;
     }
 
     private Component optionText(String label, boolean value) {
@@ -238,18 +263,22 @@ public final class ConfigScreen extends Screen {
         int visibleBottom = height - CONTENT_BOTTOM;
 
         for (ButtonEntry entry : entries) {
-            if (entry.button == null) continue;
+            if (entry.widget == null) continue;
 
             int x = entry.column == 1 ? left + colW + COLUMN_GAP : left;
-            int w = entry.width == CONTENT_W ? contentWidth() : colW;
+            int w = entry.width == FULL_WIDTH ? contentWidth() : (entry.width > 0 ? entry.width : colW);
+            if (entry.widget instanceof ConfigSlider) {
+                x = left + 20;
+                w = Math.max(80, contentWidth() - 40);
+            }
             int y = visibleTop + entry.offset - (int) scrollOffset;
             boolean visible = y + ROW_H >= visibleTop && y <= visibleBottom;
 
-            entry.button.setX(x);
-            entry.button.setY(y);
-            entry.button.setWidth(w);
-            entry.button.visible = visible;
-            entry.button.active = visible;
+            entry.widget.setX(x);
+            entry.widget.setY(y);
+            entry.widget.setWidth(w);
+            entry.widget.visible = visible;
+            entry.widget.active = visible;
         }
 
         if (doneButton != null) {
@@ -263,6 +292,8 @@ public final class ConfigScreen extends Screen {
         // Slider values are drawn live from the current config, so there is
         // no widget state to synchronize here. Kept as a separate method so
         // reset operations have one clean update hook.
+        if (roundedSlider != null) roundedSlider.refreshFromConfig();
+        if (opacitySlider != null) opacitySlider.refreshFromConfig();
         updateLayout();
     }
 
@@ -319,19 +350,6 @@ public final class ConfigScreen extends Screen {
                 }
             }
 
-            double rounded = sliderHit(event.x(), event.y(), roundedOffset);
-            if (rounded >= 0.0) {
-                setRoundedFromSlider(rounded);
-                draggingRounded = true;
-                return true;
-            }
-
-            double opacity = sliderHit(event.x(), event.y(), opacityOffset);
-            if (opacity >= 0.0) {
-                setOpacityFromSlider(opacity);
-                draggingOpacity = true;
-                return true;
-            }
         }
         return super.mouseClicked(event, doubleClick);
     }
@@ -350,17 +368,6 @@ public final class ConfigScreen extends Screen {
             return true;
         }
 
-        if (draggingRounded) {
-            double value = sliderHit(event.x(), event.y(), roundedOffset);
-            if (value >= 0.0) setRoundedFromSlider(value);
-            return true;
-        }
-
-        if (draggingOpacity) {
-            double value = sliderHit(event.x(), event.y(), opacityOffset);
-            if (value >= 0.0) setOpacityFromSlider(value);
-            return true;
-        }
 
         return super.mouseDragged(event, dragX, dragY);
     }
@@ -368,37 +375,14 @@ public final class ConfigScreen extends Screen {
     @Override
     public boolean mouseReleased(MouseButtonEvent event) {
         if (event.button() == 0) {
-            boolean wasDragging = draggingScrollbar || draggingRounded || draggingOpacity;
+            boolean wasDragging = draggingScrollbar;
             draggingScrollbar = false;
-            draggingRounded = false;
-            draggingOpacity = false;
             if (wasDragging) {
                 ConfigManager.save();
                 return true;
             }
         }
         return super.mouseReleased(event);
-    }
-
-    private double sliderHit(double mouseX, double mouseY, int contentOffset) {
-        if (contentOffset < 0) return -1.0;
-        int x = contentLeft() + 20;
-        int w = contentWidth() - 40;
-        int y = CONTENT_TOP + contentOffset + 17 - (int) scrollOffset;
-        if (mouseX < x - 6 || mouseX > x + w + 6 || mouseY < y - 9 || mouseY > y + 11) return -1.0;
-        return Math.max(0.0, Math.min(1.0, (mouseX - x) / (double) w));
-    }
-
-    private void setRoundedFromSlider(double value) {
-        ModConfig c = ConfigManager.getConfig();
-        c.roundedCorners = (int) Math.round(value * 12.0);
-        ConfigManager.save();
-    }
-
-    private void setOpacityFromSlider(double value) {
-        ModConfig c = ConfigManager.getConfig();
-        c.hudOpacity = (float) (0.10 + value * 0.90);
-        ConfigManager.save();
     }
 
     @Override
@@ -425,21 +409,6 @@ public final class ConfigScreen extends Screen {
             }
         }
 
-        // Live slider values: no reopening required after dragging.
-        int roundedY = CONTENT_TOP + roundedOffset - (int) scrollOffset;
-        if (roundedY + 40 >= CONTENT_TOP && roundedY <= height - CONTENT_BOTTOM) {
-            drawSlider(graphics, left + 20, roundedY + 17, CONTENT_W - 40,
-                    c.roundedCorners / 12.0, "Rounded Corners", c.roundedCorners + " px");
-        }
-
-        int opacityY = CONTENT_TOP + opacityOffset - (int) scrollOffset;
-        if (opacityY + 40 >= CONTENT_TOP && opacityY <= height - CONTENT_BOTTOM) {
-            double normalized = (c.hudOpacity - 0.10) / 0.90;
-            drawSlider(graphics, left + 20, opacityY + 17, CONTENT_W - 40,
-                    Math.max(0.0, Math.min(1.0, normalized)), "Opacity",
-                    Math.round(c.hudOpacity * 100) + "%");
-        }
-
         // Vanilla-style scrollbar.
         if (contentHeight > trackH) {
             int x = left + contentWidth() + 8;
@@ -455,18 +424,6 @@ public final class ConfigScreen extends Screen {
         super.extractRenderState(graphics, mouseX, mouseY, delta);
     }
 
-    private void drawSlider(GuiGraphicsExtractor graphics, int x, int y, int w,
-                            double value, String label, String valueText) {
-        graphics.text(font, label, x, y - 16, 0xFFFFFFFF, false);
-        int lineY = y + 2;
-        graphics.fill(x, lineY, x + w, lineY + 3, 0xFF555555);
-        graphics.fill(x, lineY, x + (int) (w * value), lineY + 3, 0xFFAAAAAA);
-        int knobX = x + (int) (w * value);
-        graphics.fill(knobX - 2, lineY - 3, knobX + 3, lineY + 8, 0xFFFFFFFF);
-        int valueWidth = font.width(valueText);
-        graphics.text(font, valueText, x + w - valueWidth, y - 16, 0xFFBFBFBF, false);
-    }
-
     @Override
     public void onClose() {
         ConfigManager.save();
@@ -474,16 +431,16 @@ public final class ConfigScreen extends Screen {
     }
 
     private static final class ButtonEntry {
-        final Button button;
+        final AbstractWidget widget;
         final int offset;
         final int column;
         final int width;
         final boolean section;
         final String sectionTitle;
 
-        private ButtonEntry(Button button, int offset, int column, int width,
+        private ButtonEntry(AbstractWidget widget, int offset, int column, int width,
                             boolean section, String sectionTitle) {
-            this.button = button;
+            this.widget = widget;
             this.offset = offset;
             this.column = column;
             this.width = width;
@@ -491,12 +448,56 @@ public final class ConfigScreen extends Screen {
             this.sectionTitle = sectionTitle;
         }
 
-        static ButtonEntry widget(Button button, int offset, int column) {
-            return new ButtonEntry(button, offset, column, -1, false, "");
+        static ButtonEntry widget(AbstractWidget widget, int offset, int column) {
+            return new ButtonEntry(widget, offset, column, -1, false, "");
+        }
+
+        static ButtonEntry widget(AbstractWidget widget, int offset, int column, int width) {
+            return new ButtonEntry(widget, offset, column, width, false, "");
         }
 
         static ButtonEntry section(String title, int offset) {
             return new ButtonEntry(null, offset, 0, 0, true, title);
+        }
+    }
+
+    /** Vanilla Minecraft slider widget with native slider rendering and drag handling. */
+    private final class ConfigSlider extends AbstractSliderButton {
+        private final String label;
+        private final Supplier<Double> getter;
+        private final Consumer<Double> setter;
+        private final java.util.function.Function<Double, String> valueFormatter;
+
+        private ConfigSlider(int x, int y, int width, int height, String label,
+                             Supplier<Double> getter, Consumer<Double> setter,
+                             java.util.function.Function<Double, String> valueFormatter) {
+            super(x, y, width, height, Component.literal(label), clamp01(getter.get()));
+            this.label = label;
+            this.getter = getter;
+            this.setter = setter;
+            this.valueFormatter = valueFormatter;
+            updateMessage();
+        }
+
+        @Override
+        protected void updateMessage() {
+            setMessage(Component.literal(label + ": " + valueFormatter.apply(value)));
+        }
+
+        @Override
+        protected void applyValue() {
+            setter.accept(value);
+            ConfigManager.save();
+            updateMessage();
+        }
+
+        private void refreshFromConfig() {
+            value = clamp01(getter.get());
+            updateMessage();
+        }
+
+        private static double clamp01(double v) {
+            return Math.max(0.0, Math.min(1.0, v));
         }
     }
 }
